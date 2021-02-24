@@ -11,12 +11,12 @@ TEST_CASE("Lambda"){
 
 
   SUBCASE("creation"){
-    using namespace lambda;
-    using closure_holder_t = Closure<
+    using namespace transparent_closure;
+    using closure_t = Closure<
       FunctionSignature<int,int,int>>;
     
     auto closure = ClosureMaker<int,int,int>::make([](int a, int b){return a; } );
-    CHECK(std::is_same<decltype(closure), closure_holder_t>::value);
+    CHECK(std::is_same<decltype(closure), closure_t>::value);
     CHECK(closure(1,2 ) == 1);
     auto new_closure = closure.bind(2);
     CHECK(std::is_trivially_copyable<decltype(closure)>::value );
@@ -26,7 +26,7 @@ TEST_CASE("Lambda"){
   };
 
   SUBCASE("asdfasy"){
-    using namespace lambda;
+    using namespace transparent_closure;
     // Note
     int (*fn)(int,int) = [](int a, int b ) -> int { return a;};
     auto closure1 =[fn](){

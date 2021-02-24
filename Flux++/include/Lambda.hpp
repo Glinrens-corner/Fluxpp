@@ -1,12 +1,42 @@
 #ifndef LAMBDA_HPP
 #define LAMBDA_HPP
 #include <cstring>
-#include <tuple>
+#include <new>
+#include <cstdlib>
+#include <utility>
+
+/*
+ *  Ok a little explanation: 
+ *   FunctionSignature is simply a holder class for the variadic Arguments, to separate them in variadic argument lists of other classes
+ *  
+ *   Closure and Fun are the Interface classes. Users might need to type them out
+ *   
+ *   Closure<FunctionSignature<return_t, Args_t...>, Closed_t...>
+ *     this class represents a Closure where arguments are closed over.
+ *     it holds a ClosureContainer
+ * 
+ *   Fun<return_t, Args_t...>
+ *     this class represents a closure where the closed over elements are erased.
+ *     it holds a pointer to a ClosureBase / ClosureHolder
+ *
+ *
+ *     naming for the internal classes is not very intuitive.
+ *     
+ *    ClosureContainer is the container within a Closure or a Fun(ClosureHolder ) that contains the actual function pointer as well as all bound values.
+ *
+ *    ClosureHolder and ClosureBase implement the erasure of the closed over types.
+ *    ClosureBase the Baseclass is only dependent on the  signature of the operator() 
+ *    ClosureHolder is dependent on also the closed-over types and implements ClosureBase's methods.
+ *
+ * 
+ */
+
+
 
 namespace fluxpp {
 
-  namespace lambda {
-    using std::tuple;
+  // FunctionSignature
+  namespace transparent_closure {
 
     template<class return_t, class ...argument_t>
     struct FunctionSignature{
@@ -15,14 +45,10 @@ namespace fluxpp {
       using return_type = return_t;
     };
     
-    template <class return_t, class first_t, class ...argument_t>
-    struct FunctionSignature<return_t, first_t, argument_t...>{
-    public:
-      using function_ptr_type = return_t(*)(argument_t...); 
-      using return_type = return_t;
-      using first_type = first_t;
-    };
-
+  }
+  
+  namespace transparent_closure{
+    
     struct  MemCompareInfo{
       void* obj;
       std::size_t size;
@@ -47,20 +73,27 @@ namespace fluxpp {
       return_t operator()(Args_t... args){
         return this->closure->operator()(args...);
       };
+      
+      ~Fun(){
+	this->closure->~ClosureBase<return_t, Args_t...>();
+	std::free(this->closure );
+      };
     private:
       ClosureBase<return_t, Args_t...>* closure;
     };
 
     
     template< class current_function_signature, class ...closed_t>
-    class Closure;
-    
+    class ClosureContainer;
+
+    //BaseContainer (wraps only a function pointer)
+    // the function has no arguments
     template<class return_t, class ...Arg_t  >
-    class Closure<
+    class ClosureContainer<
       FunctionSignature<return_t,Arg_t...>>{
     public:
-      Closure() =default;
-      Closure(return_t(*fn)(Arg_t... ) ):fn(fn){};
+      ClosureContainer() =default;
+      ClosureContainer(return_t(*fn)(Arg_t... ) ):fn(fn){};
       return_t operator( )(Arg_t...args ){
 	return (*fn)(args... );
       }
@@ -71,20 +104,21 @@ namespace fluxpp {
       return_t (*fn)(Arg_t... );
     };
 
-
+    //BaseContainer (wraps only a function pointer)
+    // the function has at least one argument
     template<class return_t, class first_t, class ...Arg_t  >
-    class Closure<
+    class ClosureContainer<
       FunctionSignature<return_t,first_t, Arg_t...>>{
     public:
-      Closure() =default;
-      Closure(return_t(*fn)(first_t, Arg_t... ) ):fn(fn){};
+      ClosureContainer() =default;
+      ClosureContainer(return_t(*fn)(first_t, Arg_t... ) ):fn(fn){};
       return_t operator( )(first_t first, Arg_t...args ){
 	return (*fn)(first, args... );
       }
 
       
       decltype(auto) bind(first_t closed_arg) {
-	return Closure<FunctionSignature<return_t, Arg_t...>,first_t>(*this, closed_arg);  
+	return ClosureContainer<FunctionSignature<return_t, Arg_t...>,first_t>(*this, closed_arg);  
       }
     private:
       return_t (*fn)(first_t,Arg_t... );
@@ -92,31 +126,31 @@ namespace fluxpp {
 
 
 
-    
+    // Closure
     template<
       class return_t,
       class first_closure_t,
       class ...Args,
       class ...closure_t >
-    class Closure<
+    class ClosureContainer<
       FunctionSignature<return_t,Args...>,
       first_closure_t,
-      closure_t...>: Closure<
+      closure_t...>: ClosureContainer<
       FunctionSignature<return_t,first_closure_t, Args...>,
       closure_t...>
     {
     public:
-      Closure() =default;
-      Closure(Closure<
-		    FunctionSignature<return_t,first_closure_t, Args...>,
-		    closure_t...> closure,
-		    first_closure_t first): Closure<
-		    FunctionSignature<return_t,first_closure_t, Args...>,
+      ClosureContainer() =default;
+      ClosureContainer(ClosureContainer<
+		       FunctionSignature<return_t,first_closure_t, Args...>,
+		       closure_t...> closure,
+		       first_closure_t first): ClosureContainer<
+	FunctionSignature<return_t,first_closure_t, Args...>,
 	closure_t...>(closure),first(first){}; 
 
       //      ClosureHolder<>
       return_t operator()(Args... args){
-	return Closure<
+	return ClosureContainer<
 	  FunctionSignature<return_t,first_closure_t, Args...>,
 	  closure_t...>::operator()(this->first,args... );
 	
@@ -133,31 +167,31 @@ namespace fluxpp {
       class first_arg_t,
       class ...Args_t,
       class ...closure_t >
-    class Closure<
+    class ClosureContainer<
       FunctionSignature<return_t, first_arg_t,Args_t...>,
       first_closure_t,
-      closure_t...>: Closure<
+      closure_t...>: ClosureContainer<
       FunctionSignature<return_t,first_closure_t,first_arg_t, Args_t...>,
       closure_t...>
     {
     public:
-      Closure() =default;
-      Closure(Closure<
+      ClosureContainer() =default;
+      ClosureContainer(ClosureContainer<
 		    FunctionSignature<return_t,first_closure_t, first_arg_t,Args_t...>,
 		    closure_t...> closure,
-		    first_closure_t first): Closure<
+		    first_closure_t first): ClosureContainer<
 		    FunctionSignature<return_t,first_closure_t, first_arg_t, Args_t...>,
 	closure_t...>(closure),first(first){}; 
 
       decltype(auto) bind(first_arg_t closed_arg) {
-	return Closure<FunctionSignature<return_t, Args_t...>,
+	return ClosureContainer<FunctionSignature<return_t, Args_t...>,
 		       first_arg_t,
 		       first_closure_t,
 		       closure_t...>(*this, closed_arg);  
       }
       //      Closure<>
       return_t operator()(first_arg_t first, Args_t... args){
-	return Closure<
+	return ClosureContainer<
 	  FunctionSignature<return_t,first_closure_t, first_arg_t,Args_t...>,
 	  closure_t...>::operator()(this->first,first,args... );
 	
@@ -168,17 +202,7 @@ namespace fluxpp {
     };
 
 
-    // function_decayer decays lambdas to function pointers.
-    // this only works with captureless lambdas.
-    
 
-    template<class ...T>
-    struct ClosureMaker {
-      template <class M>
-      static Closure<FunctionSignature<T...>>  make(M m){
-	return Closure<FunctionSignature<T...>>( m);
-      };
-    };
     
     template <class ...M>
     struct ClosureHolder;
@@ -186,25 +210,71 @@ namespace fluxpp {
     template<class return_t, class ...T, class ...M>
     struct ClosureHolder<FunctionSignature<return_t, T...>, M...>:ClosureBase<return_t, T...>{
     private:
-      using closure_t = Closure<FunctionSignature<return_t,T...>, M...>;
+      using closure_container_t = ClosureContainer<FunctionSignature<return_t,T...>, M...>;
     public:
-      ClosureHolder(closure_t closure){
-	std::memset( static_cast<void*>(&(this->closure)), 0,sizeof(closure_t));
-	this->closure = closure;
-
-      };
+      ClosureHolder(closure_container_t closure_container):closure_container(std::move(closure_container)){};
+      
       return_t operator()(T...args ){
-	return this->closure(args... );
+	return this->closure_container(args... );
       };
+      
       MemCompareInfo get_mem_compare_info(){
 	MemCompareInfo info{};
-	info.obj = static_cast<void*>(&(this->closure) );
-	info.size = sizeof(closure_t);
+	info.obj = static_cast<void*>(&(this->closure_container) );
+	info.size = sizeof(closure_container_t);
 	return info;
       };
     private:
-      closure_t closure;
+      closure_container_t closure_container;
     };
+
+
+    
+    template <class ...T>
+    class Closure;
+    
+    template <class return_t, class ...Args_t, class ...Closed_t >
+    class Closure<FunctionSignature<return_t, Args_t...>,  Closed_t...>{
+    private:
+      using closure_container_t = ClosureContainer<FunctionSignature<return_t, Args_t...>,  Closed_t...>;
+      using closure_holder_t = ClosureHolder<FunctionSignature<return_t, Args_t...>,  Closed_t...>;
+    public:
+      Closure(closure_container_t closure_container) : closure_container( std::move(closure_container)){};
+      
+      return_t operator()(Args_t... args){
+	return this->closure_container(args...);
+      }
+
+      template<class T>
+      decltype(auto) bind(T arg){
+	return this->closure_container.bind(arg);
+      }
+
+      Fun<return_t, Args_t...> as_fun(){
+	void* memory_vptr = std::aligned_alloc(alignof(closure_holder_t), sizeof(closure_holder_t));
+	if ( ! memory_vptr){
+	  std::bad_alloc exc;
+	  throw exc;
+	};
+	std::memset(memory_vptr, 0,sizeof(closure_holder_t));
+	auto closure_holder_ptr =  new ( memory_vptr) closure_holder_t(this->closure_container);
+	return Fun<return_t, Args_t...>( closure_holder_ptr );
+      }
+    private:
+      closure_container_t closure_container ;
+
+    };
+      
+
+    
+    template<class ...T>
+    struct ClosureMaker {
+      template <class M>
+      static Closure<FunctionSignature<T...>>  make(M m){
+	return Closure<FunctionSignature<T...>>( ClosureContainer<FunctionSignature<T...>> (m));
+      };
+    };
+    
     
     
     
