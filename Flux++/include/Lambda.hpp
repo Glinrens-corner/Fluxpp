@@ -4,6 +4,7 @@
 #include <new>
 #include <cstdlib>
 #include <utility>
+#include <type_traits>
 
 /*
  *  Ok a little explanation: 
@@ -31,7 +32,9 @@
  * 
  */
 
-
+/*
+ *two versions of a Fun can be comp
+ */
 
 namespace fluxpp {
 
@@ -48,14 +51,101 @@ namespace fluxpp {
   }
   
   namespace transparent_closure{
+    namespace test {
+      // is tansparent  effectively alialises to true_type or false_type
+      // this is different from check_transparency
+      
+      template<class T>
+      struct is_transparent : std::false_type{ };
+      
+      
+      template<>
+      struct is_transparent<bool> :std::true_type{};
+      template<>
+      struct is_transparent<char> :std::true_type{};
+      template<>
+      struct is_transparent<unsigned char> :std::true_type{};
+      template<>
+      struct is_transparent<signed char> :std::true_type{};
+
+      template<>
+      struct is_transparent<int> :std::true_type{};
+      template<>
+      struct is_transparent<unsigned int> :std::true_type{};
+      //      template<>
+      //      struct is_transparent<signed int> :std::true_type{};
+
+      template<>
+      struct is_transparent<short int> :std::true_type{};
+      template<>
+      struct is_transparent<unsigned short int> :std::true_type{};
+      //      template<>
+      //      struct is_transparent<signed short int> :std::true_type{};
+      
+      template<>
+      struct is_transparent<long int> :std::true_type{};
+      template<>
+      struct is_transparent<unsigned long int> :std::true_type{};
+      //      template<>
+      //      struct is_transparent<signed long int> :std::true_type{};
+
+
+      template<>
+      struct is_transparent<long long int> :std::true_type{};
+      template<>
+      struct is_transparent<unsigned long long int> :std::true_type{};
+      //      template<>
+      //      struct is_transparent<signed long long int> :std::true_type{};
+
+      template<>
+      struct is_transparent<float> :std::true_type{};
+      template<>
+      struct is_transparent<double> :std::true_type{};
+      
+      template<>
+      struct is_transparent<long double> :std::true_type{};
+      template<>
+      struct is_transparent<wchar_t> :std::true_type{};
+     
+      
+
+    }
+      
+    namespace error{
+      class ignore{};
+      template<class T, class enable=void>
+      struct is_not_transparent{
+      };
+      
+      template<class T >
+      struct is_not_transparent<T, typename std::enable_if<test::is_transparent<T>::value, void>::type>{
+	using type = std::false_type;
+      };
+      
     
+      
+    }
+
+    namespace test{
+      // check_transparent generates a compiltime error if T is not transparent
+      template<class T>
+      using check_transparent = typename  error::is_not_transparent<T>::type;
+
+      
+
+      
+	
+    }
+  }
+
+  //MemCompareInfo
+  // ClosureBase
+  // Fun
+  namespace transparent_closure{
     struct  MemCompareInfo{
       void* obj;
       std::size_t size;
     };
-    
-
-    
 
     template<class return_t , class ...Args_t>
     struct ClosureBase{
@@ -82,26 +172,29 @@ namespace fluxpp {
       ClosureBase<return_t, Args_t...>* closure;
     };
 
-    
+  }
+
+  // ClosureContainer
+  namespace transparent_closure{
     template< class current_function_signature, class ...closed_t>
     class ClosureContainer;
 
     //BaseContainer (wraps only a function pointer)
     // the function has no arguments
-    template<class return_t, class ...Arg_t  >
+    template<class return_t  >
     class ClosureContainer<
-      FunctionSignature<return_t,Arg_t...>>{
+      FunctionSignature<return_t>>{
     public:
       ClosureContainer() =default;
-      ClosureContainer(return_t(*fn)(Arg_t... ) ):fn(fn){};
-      return_t operator( )(Arg_t...args ){
-	return (*fn)(args... );
+      ClosureContainer(return_t(*fn)( ) ):fn(fn){};
+      return_t operator( )( ){
+	return (*fn)( );
       }
       //      Fun<return_t, Arg_t...> as_fun(){
       //	auto p = new ClosureHolder<>;
       // }
     private:
-      return_t (*fn)(Arg_t... );
+      return_t (*fn)( );
     };
 
     //BaseContainer (wraps only a function pointer)
@@ -266,6 +359,12 @@ namespace fluxpp {
     };
       
 
+    template<class return_t, class ...T>
+    decltype(auto) closure_from_fp(return_t(*fp)(T... ) ){
+      using signature_t = FunctionSignature<return_t, T...>;
+      return Closure<signature_t>(ClosureContainer<signature_t>(fp));
+
+    };
     
     template<class ...T>
     struct ClosureMaker {

@@ -14,7 +14,12 @@ TEST_CASE("Lambda"){
     using namespace transparent_closure;
     using closure_t = Closure<
       FunctionSignature<int,int,int>>;
+    SUBCASE("closure_from_fp"){
+      int(*fp)(int,int)  = [](int a,int b)->int{return static_cast<char>(a);};
+      auto closure = closure_from_fp(fp);
+      CHECK(std::is_same<decltype(closure), closure_t>::value);
     
+    };
     auto closure = ClosureMaker<int,int,int>::make([](int a, int b){return a; } );
     CHECK(std::is_same<decltype(closure), closure_t>::value);
     CHECK(closure(1,2 ) == 1);
@@ -24,10 +29,15 @@ TEST_CASE("Lambda"){
     CHECK(new_closure(3) == 2);
     
   };
-
+  SUBCASE("Metaprogramming Errors"){ 
+    using namespace transparent_closure;
+    // we would need to check that this gives an compiler error
+    //    using h = test::check_transparent<int&>;
+     using g = test::check_transparent<int>;
+  };
+					    
   SUBCASE("asdfasy"){
     using namespace transparent_closure;
-    // Note
     int (*fn)(int,int) = [](int a, int b ) -> int { return a;};
     auto closure1 =[fn](){
       auto closure = ClosureMaker<int,int,int>::make(fn);
