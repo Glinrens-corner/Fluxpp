@@ -33,7 +33,8 @@ TEST_CASE("Lambda"){
     using namespace transparent_closure;
     // we would need to check that this gives an compiler error
     //    using h = test::check_transparent<int&>;
-     using g = test::check_transparent<int>;
+    // this however does not.
+    // using g = test::check_transparent<int>;
   };
 					    
   SUBCASE("asdfasy"){

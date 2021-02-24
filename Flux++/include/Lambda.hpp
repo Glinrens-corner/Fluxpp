@@ -50,6 +50,7 @@ namespace fluxpp {
     
   }
   
+  // Metaprogramming tests
   namespace transparent_closure{
     namespace test {
       // is tansparent  effectively alialises to true_type or false_type
@@ -220,32 +221,32 @@ namespace fluxpp {
 
 
     // Closure
+    // no arguments, at least one closed over argument
     template<
       class return_t,
       class first_closure_t,
-      class ...Args,
       class ...closure_t >
     class ClosureContainer<
-      FunctionSignature<return_t,Args...>,
+      FunctionSignature<return_t>,
       first_closure_t,
       closure_t...>: ClosureContainer<
-      FunctionSignature<return_t,first_closure_t, Args...>,
+      FunctionSignature<return_t,first_closure_t>,
       closure_t...>
     {
     public:
       ClosureContainer() =default;
       ClosureContainer(ClosureContainer<
-		       FunctionSignature<return_t,first_closure_t, Args...>,
+		       FunctionSignature<return_t,first_closure_t>,
 		       closure_t...> closure,
 		       first_closure_t first): ClosureContainer<
-	FunctionSignature<return_t,first_closure_t, Args...>,
+	FunctionSignature<return_t,first_closure_t>,
 	closure_t...>(closure),first(first){}; 
 
       //      ClosureHolder<>
-      return_t operator()(Args... args){
+      return_t operator()(){
 	return ClosureContainer<
-	  FunctionSignature<return_t,first_closure_t, Args...>,
-	  closure_t...>::operator()(this->first,args... );
+	  FunctionSignature<return_t,first_closure_t>,
+	  closure_t...>::operator()(this->first );
 	
       };
 
@@ -254,6 +255,8 @@ namespace fluxpp {
     };
 
 
+    // Closure with at least one argument
+    //    and at least one enclosed value
     template<
       class return_t,
       class first_closure_t,
@@ -282,7 +285,7 @@ namespace fluxpp {
 		       first_closure_t,
 		       closure_t...>(*this, closed_arg);  
       }
-      //      Closure<>
+
       return_t operator()(first_arg_t first, Args_t... args){
 	return ClosureContainer<
 	  FunctionSignature<return_t,first_closure_t, first_arg_t,Args_t...>,
@@ -294,8 +297,10 @@ namespace fluxpp {
       first_closure_t first;
     };
 
+  };
 
-
+  // ClosureHolder
+  namespace transparent_closure{
     
     template <class ...M>
     struct ClosureHolder;
@@ -321,7 +326,10 @@ namespace fluxpp {
       closure_container_t closure_container;
     };
 
-
+  }
+  
+  //Closure
+  namespace transparent_closure{
     
     template <class ...T>
     class Closure;
@@ -357,7 +365,10 @@ namespace fluxpp {
       closure_container_t closure_container ;
 
     };
-      
+  }
+  
+  //  helper functions and classes
+  namespace transparent_closure{
 
     template<class return_t, class ...T>
     decltype(auto) closure_from_fp(return_t(*fp)(T... ) ){
@@ -429,9 +440,6 @@ namespace fluxpp {
 
 
   }
-
-
-
 
 }
 #endif //LAMBDA_HPP
