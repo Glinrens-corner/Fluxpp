@@ -399,17 +399,31 @@ namespace fluxpp {
 	// this gives horrible error messages.
 	return_t (*fp)(T...) = m;
 	return Closure<FunctionSignature<return_t, T...>>( ClosureContainer<FunctionSignature<return_t, T...>> (fp));
-      };
+      }
+    };
+  }; // transparent_closure
+
+  // compare 
+  namespace transparent_closure {
+    
+    template<class Fun1_t, class Fun2_t>
+    bool is_identical(Fun1_t& fun1, Fun2_t& fun2 ){
+      MemCompareInfo info1 = fun1.get_mem_compare_info();
+      MemCompareInfo info2 = fun2.get_mem_compare_info();
+      if (info1.size != info2.size)return false;
+      // ASSM: info1.size == info2.size
+      if(std::memcmp(info1.obj,info2.obj, info2.size) !=0 ) return false;
+      return true;
+    };
+    
+    template<class Fun1_t, class Fun2_t>
+    bool is_updated(Fun1_t& fun1, Fun2_t& fun2 ){
+      return ! is_identical<Fun1_t, Fun2_t>(fun1, fun2 );
     };
     
     
-    
-    
-    
-    
+  }; // transparent_closure
+  
+} // fluxpp
 
-
-  }
-
-}
 #endif //LAMBDA_HPP
