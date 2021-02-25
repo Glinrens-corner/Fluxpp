@@ -130,7 +130,7 @@ namespace fluxpp {
     namespace test{
       // check_transparent generates a compiltime error if T is not transparent
       template<class T>
-      using check_transparent = typename  error::is_not_transparent<T>::type;
+      using check_transparency = typename  error::is_not_transparent<T>::type;
 
       
 
@@ -151,11 +151,15 @@ namespace fluxpp {
     template<class return_t , class ...Args_t>
     struct ClosureBase{
       virtual return_t operator()(Args_t... ) =0;
-      virtual  MemCompareInfo get_mem_compare_info()=0;
+      virtual MemCompareInfo get_mem_compare_info()=0;
+      virtual ~ClosureBase(){};
     };
     
     template<class return_t, class ... Args_t>
     class Fun{
+    private:
+            using test_tuple_t = std::tuple<test::check_transparency<Args_t>...>; 
+    public:
       Fun( ClosureBase<return_t, Args_t...>* closure ): closure(closure){};
       MemCompareInfo get_mem_compare_info() {
 	return this->closure->get_mem_compare_info();
@@ -333,10 +337,19 @@ namespace fluxpp {
     
     template <class ...T>
     class Closure;
+
+    template<class T>
+    struct fitting_closure;
+
+    template<class ...T>
+    struct fitting_closure<ClosureContainer<T...>> {
+      using type = Closure<T...>;
+    };
     
     template <class return_t, class ...Args_t, class ...Closed_t >
     class Closure<FunctionSignature<return_t, Args_t...>,  Closed_t...>{
     private:
+      using test_tuple_t = std::tuple<test::check_transparency<Args_t>...,test::check_transparency<Closed_t>...>; 
       using closure_container_t = ClosureContainer<FunctionSignature<return_t, Args_t...>,  Closed_t...>;
       using closure_holder_t = ClosureHolder<FunctionSignature<return_t, Args_t...>,  Closed_t...>;
     public:
@@ -346,9 +359,9 @@ namespace fluxpp {
 	return this->closure_container(args...);
       }
 
-      template<class T>
+      template<class T, typename std::enable_if<(sizeof...(Args_t)>= 1), bool>::type=true>
       decltype(auto) bind(T arg){
-	return this->closure_container.bind(arg);
+	return typename fitting_closure<decltype(this->closure_container.bind(arg))>::type(this->closure_container.bind(arg));
       }
 
       Fun<return_t, Args_t...> as_fun(){
@@ -372,71 +385,28 @@ namespace fluxpp {
 
     template<class return_t, class ...T>
     decltype(auto) closure_from_fp(return_t(*fp)(T... ) ){
+      using test_t = std::tuple<test::check_transparency<T>...>;
       using signature_t = FunctionSignature<return_t, T...>;
       return Closure<signature_t>(ClosureContainer<signature_t>(fp));
 
     };
     
-    template<class ...T>
+    template<class return_t, class ...T>
     struct ClosureMaker {
+      using test_t = std::tuple<test::check_transparency<T>...>;
       template <class M>
-      static Closure<FunctionSignature<T...>>  make(M m){
-	return Closure<FunctionSignature<T...>>( ClosureContainer<FunctionSignature<T...>> (m));
+      static Closure<FunctionSignature<return_t,T...>>  make(M m){
+	// this gives horrible error messages.
+	return_t (*fp)(T...) = m;
+	return Closure<FunctionSignature<return_t, T...>>( ClosureContainer<FunctionSignature<return_t, T...>> (fp));
       };
     };
     
     
     
     
-    /*
-    template <class T>
-    struct get_base_fun;
-    
-    template< class current_function_signature,
-	      class closure_tuple_t,
-	      class return_t , class...T>
-    struct get_base_fun<
-      ClosureHolder<
-	FunctionSignature<return_t,T...>,
-	current_function_signature,
-	closure_tuple_t> >{
-      using type = BaseFun<Ret,T...>;
-    };
-
-    
-    template<   class closure_holder_t>
-    class Fun ;
     
     
-    template <class current_function_signature,
-	      class closure_tuple_t,
-	      class return_t , class...T>
-    class Fun < ClosureHolder<
-	FunctionSignature<return_t,T...>,
-	current_function_signature,
-		  closure_tuple_t>>: BaseFun<return_t, ...T> {
-    private:
-      using closure_holder_t = ClosureHolder<
-      FunctionSignature<return_t,T...>,
-      current_function_signature,
-      closure_tuple_t>;
-    public:
-      Fun(closure_holder_t closure ): closure(closure){};
-      Ret operator()(T...args) override{
-	return closure(args... );
-      }
-    private:
-      closure_holder_t closure;
-    };
-
-    
-    
-    CaptureHolder<class T...> with(T... captured){
-      return CaptureHolder<class T...>(captured...);
-    };
-
-   
-    */
 
 
   }

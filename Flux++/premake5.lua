@@ -14,7 +14,7 @@ project "Flux++"
     files { "src/*.cpp"  }
     includedirs {"include", "src/include"}
     removefiles { "libs/allocators/*.t.cpp"}
-    buildoptions { "-Wall"}
+    buildoptions { "-Wall", "-Wno-unused-local-typedef"}
     optimize "Full"
     filter "Test"
         files {"test/*.cpp"}
