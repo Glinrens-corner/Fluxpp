@@ -144,14 +144,14 @@ namespace fluxpp {
   // Fun
   namespace transparent_closure{
     struct  MemCompareInfo{
-      void* obj;
+      const void* obj;
       std::size_t size;
     };
 
     template<class return_t , class ...Args_t>
     struct ClosureBase{
-      virtual return_t operator()(Args_t... ) =0;
-      virtual MemCompareInfo get_mem_compare_info()=0;
+      virtual return_t operator()(Args_t... )const =0;
+      virtual MemCompareInfo get_mem_compare_info()const=0;
       virtual ~ClosureBase(){};
     };
     
@@ -161,11 +161,11 @@ namespace fluxpp {
             using test_tuple_t = std::tuple<test::check_transparency<Args_t>...>; 
     public:
       Fun( ClosureBase<return_t, Args_t...>* closure ): closure(closure){};
-      MemCompareInfo get_mem_compare_info() {
+      MemCompareInfo get_mem_compare_info() const {
 	return this->closure->get_mem_compare_info();
       };
       
-      return_t operator()(Args_t... args){
+      return_t operator()(Args_t... args)const{
         return this->closure->operator()(args...);
       };
       
@@ -190,14 +190,11 @@ namespace fluxpp {
     class ClosureContainer<
       FunctionSignature<return_t>>{
     public:
-      ClosureContainer() =default;
-      ClosureContainer(return_t(*fn)( ) ):fn(fn){};
-      return_t operator( )( ){
+      explicit ClosureContainer(return_t(*fn)( ) ):fn(fn){};
+      return_t operator( )( )const {
 	return (*fn)( );
       }
-      //      Fun<return_t, Arg_t...> as_fun(){
-      //	auto p = new ClosureHolder<>;
-      // }
+      
     private:
       return_t (*fn)( );
     };
@@ -208,9 +205,8 @@ namespace fluxpp {
     class ClosureContainer<
       FunctionSignature<return_t,first_t, Arg_t...>>{
     public:
-      ClosureContainer() =default;
-      ClosureContainer(return_t(*fn)(first_t, Arg_t... ) ):fn(fn){};
-      return_t operator( )(first_t first, Arg_t...args ){
+      explicit ClosureContainer(return_t(*fn)(first_t, Arg_t... ) ):fn(fn){};
+      return_t operator( )(first_t first, Arg_t...args )const {
 	return (*fn)(first, args... );
       }
 
@@ -238,7 +234,6 @@ namespace fluxpp {
       closure_t...>
     {
     public:
-      ClosureContainer() =default;
       ClosureContainer(ClosureContainer<
 		       FunctionSignature<return_t,first_closure_t>,
 		       closure_t...> closure,
@@ -247,7 +242,7 @@ namespace fluxpp {
 	closure_t...>(closure),first(first){}; 
 
       //      ClosureHolder<>
-      return_t operator()(){
+      return_t operator()()const{
 	return ClosureContainer<
 	  FunctionSignature<return_t,first_closure_t>,
 	  closure_t...>::operator()(this->first );
@@ -275,7 +270,6 @@ namespace fluxpp {
       closure_t...>
     {
     public:
-      ClosureContainer() =default;
       ClosureContainer(ClosureContainer<
 		    FunctionSignature<return_t,first_closure_t, first_arg_t,Args_t...>,
 		    closure_t...> closure,
@@ -290,7 +284,7 @@ namespace fluxpp {
 		       closure_t...>(*this, closed_arg);  
       }
 
-      return_t operator()(first_arg_t first, Args_t... args){
+      return_t operator()(first_arg_t first, Args_t... args)const{
 	return ClosureContainer<
 	  FunctionSignature<return_t,first_closure_t, first_arg_t,Args_t...>,
 	  closure_t...>::operator()(this->first,first,args... );
@@ -314,16 +308,17 @@ namespace fluxpp {
     private:
       using closure_container_t = ClosureContainer<FunctionSignature<return_t,T...>, M...>;
     public:
-      ClosureHolder(closure_container_t closure_container):closure_container(std::move(closure_container)){};
+      explicit ClosureHolder(closure_container_t closure_container):closure_container(std::move(closure_container)){};
       
-      return_t operator()(T...args ){
+      return_t operator()(T...args )const{
 	return this->closure_container(args... );
       };
       
-      MemCompareInfo get_mem_compare_info(){
-	MemCompareInfo info{};
-	info.obj = static_cast<void*>(&(this->closure_container) );
-	info.size = sizeof(closure_container_t);
+      MemCompareInfo get_mem_compare_info()const{
+	MemCompareInfo info{
+	  .obj  = static_cast<const void*>(&(this->closure_container) ),
+	    .size = sizeof(closure_container_t)
+	};
 	return info;
       };
     private:
@@ -353,9 +348,9 @@ namespace fluxpp {
       using closure_container_t = ClosureContainer<FunctionSignature<return_t, Args_t...>,  Closed_t...>;
       using closure_holder_t = ClosureHolder<FunctionSignature<return_t, Args_t...>,  Closed_t...>;
     public:
-      Closure(closure_container_t closure_container) : closure_container( std::move(closure_container)){};
+      explicit Closure(closure_container_t closure_container) : closure_container( std::move(closure_container)){};
       
-      return_t operator()(Args_t... args){
+      return_t operator()(Args_t... args)const{
 	return this->closure_container(args...);
       }
 
