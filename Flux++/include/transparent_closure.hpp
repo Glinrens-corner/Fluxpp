@@ -1,5 +1,5 @@
-#ifndef LAMBDA_HPP
-#define LAMBDA_HPP
+#ifndef TRANSPARENT_CLOSURE_HPP
+#define TRANSPARENT_CLOSURE_HPP
 #include <cstring>
 #include <new>
 #include <cstdlib>
@@ -426,4 +426,4 @@ namespace fluxpp {
   
 } // fluxpp
 
-#endif //LAMBDA_HPP
+#endif //TRANSPARENT_CLOSURE_HPP

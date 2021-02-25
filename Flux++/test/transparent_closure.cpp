@@ -1,6 +1,6 @@
 #include "doctest.h"
 
-#include "Lambda.hpp"
+#include "transparent_closure.hpp"
 #include <type_traits>
 
 
