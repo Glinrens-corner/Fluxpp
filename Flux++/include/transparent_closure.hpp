@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <utility>
 #include <type_traits>
+#include <cassert>
+
 
 /*
  *  Ok a little explanation: 
@@ -32,14 +34,86 @@
  * 
  */
 
-/*
- *two versions of a Fun can be comp
- */
+// we simply assume that all scalar types are ok with being 64 byte aligned
+
+#define MAX_SCALAR_ALIGNMENT 64
 
 namespace fluxpp {
 
   // FunctionSignature
   namespace transparent_closure {
+    namespace detail{
+      
+      class StackAllocator{
+
+      public:
+	StackAllocator( ):size(0),max_size(256){
+	  this->stack_base = reinterpret_cast<char*>(std::aligned_alloc(MAX_SCALAR_ALIGNMENT,256));
+	  if (!this->stack_base)throw std::bad_alloc();
+
+	  
+	};
+	
+	template<class T>
+        void * get_new(){
+	  static_assert( alignof(T)<MAX_SCALAR_ALIGNMENT, "unsupported alignment");
+	  std::size_t old_size =  this->size;
+	  std::size_t new_size =  this->size + this->calculate_size_increase<T>();
+	  while (new_size > this->max_size) {
+	    this->reallocate();
+	  };
+	  assert(this->max_size >= new_size);
+	  this->size = new_size;
+	  return reinterpret_cast<void*>(this->stack_base+old_size);
+	}
+
+	template<class T>
+	T* get_last(){
+	  assert(this->size >= this->calculate_size_increase<T>());
+	  return reinterpret_cast<T*>( this->stack_base+ ( this->size - this->calculate_size_increase<T>()) );
+	}
+	
+	template<class T>
+	void pop_last(){
+	  assert(this->size>= this->calculate_size_increase<T>());
+	  this->size -= this->calculate_size_increase<T>();
+	}
+
+	~StackAllocator(){
+	  std::free(this->stack_base);
+	};
+
+	
+      private:
+	template <class T>
+	constexpr std::size_t calculate_size_increase() const{
+	  return (sizeof(T)/MAX_SCALAR_ALIGNMENT+ (sizeof(T) %MAX_SCALAR_ALIGNMENT==0?0:1))*MAX_SCALAR_ALIGNMENT; 
+	}
+
+	void reallocate() {
+	  std::size_t new_max_size = 2*this->max_size;
+	  char *  new_base = reinterpret_cast<char*>(std::aligned_alloc(MAX_SCALAR_ALIGNMENT,new_max_size));
+	  if (!new_base)throw std::bad_alloc();
+	  std::memcpy(new_base, this->stack_base, this->max_size );
+	  
+	  std::free(this->stack_base);
+
+	  this->stack_base = new_base ;
+	  this->max_size = new_max_size;
+
+	}
+
+      public:// for testing
+	constexpr static std::size_t get_init_max_size(){return 256; };
+	std::size_t get_size()const{return this->size;};
+	std::size_t get_max_size()const{return this->max_size;};
+        char* get_stack_base()const{return this->stack_base;};
+      private:
+	char * stack_base;
+	std::size_t size;
+	std::size_t max_size;
+      };
+    };
 
     template<class return_t, class ...argument_t>
     struct FunctionSignature{
@@ -144,14 +218,25 @@ namespace fluxpp {
   // Fun
   namespace transparent_closure{
     struct  MemCompareInfo{
+      const void* next_obj;
+      MemCompareInfo(*continuation_fn)(detail::StackAllocator&, const void*);
       const void* obj;
       std::size_t size;
+    };
+
+    using mem_compare_continuation_fn_t = decltype(MemCompareInfo::continuation_fn);
+    
+    struct ComparisonIteratorBase {
+      const void * next_obj;
+      mem_compare_continuation_fn_t  continuation_fn;
     };
 
     template<class return_t , class ...Args_t>
     struct ClosureBase{
       virtual return_t operator()(Args_t... )const =0;
-      virtual MemCompareInfo get_mem_compare_info()const=0;
+      virtual MemCompareInfo get_mem_compare_info(const void* next_obj,
+						  mem_compare_continuation_fn_t continuation,
+						  detail::StackAllocator& stack)const=0;
       virtual ~ClosureBase(){};
     };
     
@@ -161,9 +246,13 @@ namespace fluxpp {
             using test_tuple_t = std::tuple<test::check_transparency<Args_t>...>; 
     public:
       Fun( ClosureBase<return_t, Args_t...>* closure ): closure(closure){};
-      MemCompareInfo get_mem_compare_info() const {
-	return this->closure->get_mem_compare_info();
+      MemCompareInfo get_mem_compare_info(void* next_obj,
+					  mem_compare_continuation_fn_t continuation,
+					  detail::StackAllocator& stack) const {
+	return this->closure->get_mem_compare_info(next_obj, continuation, stack);
       };
+
+     
       
       return_t operator()(Args_t... args)const{
         return this->closure->operator()(args...);
@@ -314,11 +403,31 @@ namespace fluxpp {
 	return this->closure_container(args... );
       };
       
-      MemCompareInfo get_mem_compare_info()const{
+      MemCompareInfo get_mem_compare_info(const void* next_obj,
+					  mem_compare_continuation_fn_t continuation,
+					  detail::StackAllocator& stack)const{
+	// saving 
+        new (stack.get_new<ComparisonIteratorBase>()) ComparisonIteratorBase{
+	  .next_obj = next_obj,  .
+	  continuation_fn = continuation};
 	MemCompareInfo info{
-	  .obj  = static_cast<const void*>(&(this->closure_container) ),
+	  .next_obj = static_cast<const void*>(this),
+	    .continuation_fn = &ClosureHolder<FunctionSignature<return_t, T...>, M...>::continue_mem_compare_info,
+	    .obj  = static_cast<const void*>(&(this->closure_container) ),
 	    .size = sizeof(closure_container_t)
 	};
+	return info;
+      };
+
+      static MemCompareInfo continue_mem_compare_info(detail::StackAllocator& stack,
+						      const void* obj){
+	MemCompareInfo info{
+	  .next_obj = stack.get_last<ComparisonIteratorBase>()->next_obj,
+	    .continuation_fn = stack.get_last<ComparisonIteratorBase>()-> continuation_fn,
+	    .obj  = nullptr,
+	    .size =0
+	};
+	stack.pop_last<ComparisonIteratorBase>();
 	return info;
       };
     private:
@@ -396,21 +505,81 @@ namespace fluxpp {
 	return Closure<FunctionSignature<return_t, T...>>( ClosureContainer<FunctionSignature<return_t, T...>> (fp));
       }
     };
-  }; // transparent_closure
+  }; 
 
   // compare 
   namespace transparent_closure {
-    
+
+    namespace detail {
+      
+      bool is_identical_object(MemCompareInfo& info1, MemCompareInfo& info2);
+    }
     template<class Fun1_t, class Fun2_t>
     bool is_identical(Fun1_t& fun1, Fun2_t& fun2 ){
-      MemCompareInfo info1 = fun1.get_mem_compare_info();
-      MemCompareInfo info2 = fun2.get_mem_compare_info();
-      if (info1.size != info2.size)return false;
-      // ASSM: info1.size == info2.size
-      if(std::memcmp(info1.obj,info2.obj, info2.size) !=0 ) return false;
-      return true;
-    };
-    
+      constexpr auto is_null = [](const void* ptr)->bool {return ! ptr;}; 
+      
+      if (! std::is_same<Fun1_t, Fun2_t>::value ) return false;
+
+      
+      
+      auto stack1 = detail::StackAllocator{};
+      auto stack2 = detail::StackAllocator{};
+      MemCompareInfo info1 = fun1.get_mem_compare_info(nullptr,nullptr,stack1);
+      MemCompareInfo info2 = fun2.get_mem_compare_info(nullptr,nullptr,stack2);
+ 
+      while (true) {
+	if ( is_null( info1.next_obj) or is_null(info2.next_obj) ){
+	  // next_obj ( and continuation_fn ) can only be null if
+	  //   the highest level of the object tree has been handled and the the algorithm returns the pointer this function has above given it.
+#ifndef NDEBUG
+	  if (is_null(info1.next_obj)){
+	    assert(stack1.get_size() == 0);
+	    assert(! info1.continuation_fn);
+	    
+	  };
+	  if (is_null(info2.next_obj)){
+	    assert(stack2.get_size() == 0);
+	    assert(!info2.continuation_fn);
+	  };
+#endif
+
+	  if ( not ( is_null(info1.next_obj) and is_null(info2.next_obj))) return false;
+	  return true;
+	};
+	
+	if (is_null(info1.obj) or is_null(info2.obj) ) {
+	  // the obj being null indicates, that a level has been handled and
+	  // the next higher level needs to continue.
+	  //   TODO theoretically the function which returns this info could themselves call the continuation.
+	  // however I believe this way we get a somewhat more sensible stack trace... 
+#ifndef NDEBUG
+	  if (is_null(info1.obj)){
+	    assert(info1.size == 0);
+	  };
+	  if (is_null(info2.next_obj)){
+	    assert(info2.size == 0);
+	  };
+#endif
+	  if ( not ( is_null(info1.obj) and is_null(info2.obj))) return false;
+	  assert(  info1.continuation_fn);
+	  assert(  info1.next_obj);  
+	  info1 = info1.continuation_fn(stack1, info1.next_obj );
+	  
+	  assert(  info2.continuation_fn);
+	  assert(  info2.next_obj);
+	  info2 = info2.continuation_fn(stack2, info2.next_obj );
+	}; 
+	if (! detail::is_identical_object( info1,info2)) return false;
+	assert(  info1.continuation_fn);
+	assert(  info1.next_obj);  
+	info1 = info1.continuation_fn(stack1, info1.next_obj );
+	
+	assert(  info2.continuation_fn);
+	assert(  info2.next_obj);
+	info2 = info2.continuation_fn(stack2, info2.next_obj );
+
+      };
+    }
     template<class Fun1_t, class Fun2_t>
     bool is_updated(Fun1_t& fun1, Fun2_t& fun2 ){
       return ! is_identical<Fun1_t, Fun2_t>(fun1, fun2 );

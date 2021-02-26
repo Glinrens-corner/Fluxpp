@@ -3,7 +3,49 @@
 #include "transparent_closure.hpp"
 #include <type_traits>
 
+TEST_CASE("StackAllocator"){
+  using  fluxpp::transparent_closure::detail::StackAllocator;
+  SUBCASE("basic test"){
+    StackAllocator stack{};
+    
 
+    REQUIRE(stack.get_size()==0 );
+    new (stack.get_new<int>()) int{5};
+    CHECK(stack.get_size() >= sizeof(int));
+    CHECK( (*stack.get_last<int>())== 5);
+    stack.pop_last<int>();
+    CHECK(stack.get_size() == 0);
+  };
+  SUBCASE("multiple"){
+    StackAllocator stack{};
+
+    //    
+
+    new (stack.get_new<long>()) long{5};
+    new (stack.get_new<int>()) int{4};
+    new (stack.get_new<short>()) short{3};
+    CHECK( (*stack.get_last<short>())== 3);
+    stack.pop_last<short>();
+    CHECK( (*stack.get_last<int>())== 4);
+    stack.pop_last<int>();
+    CHECK( (*stack.get_last<long>())== 5);
+    stack.pop_last<long>();
+  };
+  SUBCASE("basic test"){
+    StackAllocator stack{};
+    constexpr std::size_t stack_init_max_size = StackAllocator::get_init_max_size();
+    new (stack.get_new<int>()) int{4};
+    stack.get_new<char[stack_init_max_size]>();
+    CHECK( stack.get_size()>=(stack_init_max_size+sizeof(int)));
+    new (stack.get_new<int>()) int{16};
+    CHECK( (*stack.get_last<int>())== 16);
+    stack.pop_last<int>();
+    stack.pop_last<char[stack_init_max_size]>();
+    CHECK( (*stack.get_last<int>())== 4);
+    stack.pop_last<int>();
+    CHECK(stack.get_size() == 0 );
+  };
+}
 
 TEST_CASE("Lambda"){
   using namespace fluxpp;
@@ -51,19 +93,19 @@ TEST_CASE("Lambda"){
     auto closure1 =ClosureMaker<int,int,int>::make(fn).bind(2).as_fun();
     auto closure2=ClosureMaker<int,int,int>::make(fn).bind(2).as_fun();;
     auto closure3=ClosureMaker<int,int,int>::make(fn).bind(3).as_fun();;
-    auto mem_info1 = closure1.get_mem_compare_info();
-    auto mem_info2 = closure2.get_mem_compare_info();
-    auto mem_info3 = closure3.get_mem_compare_info();
+    //    auto mem_info1 = closure1.get_mem_compare_info();
+    //    auto mem_info2 = closure2.get_mem_compare_info();
+    //    auto mem_info3 = closure3.get_mem_compare_info();
 
     CHECK_FALSE(is_updated( closure1,closure2) );
     CHECK(is_identical(closure1,closure2));
-    REQUIRE(mem_info1.size==mem_info2.size );
-    CHECK(std::memcmp(mem_info1.obj, mem_info2.obj, mem_info2.size) == 0);
+    //    REQUIRE(mem_info1.size==mem_info2.size );
+    //    CHECK(std::memcmp(mem_info1.obj, mem_info2.obj, mem_info2.size) == 0);
     
     CHECK_FALSE(is_identical(closure2,closure3));
     CHECK(is_updated( closure2,closure3) );
-    REQUIRE(mem_info2.size==mem_info3.size );
-    CHECK(std::memcmp(mem_info2.obj, mem_info3.obj, mem_info2.size) != 0);
+    //    REQUIRE(mem_info2.size==mem_info3.size );
+    //    CHECK(std::memcmp(mem_info2.obj, mem_info3.obj, mem_info2.size) != 0);
   };
 
 }
