@@ -4,7 +4,9 @@ if ( get_config("toolchain") ~= "clang" ) then
 
 end
 
+add_repositories("private-repo private_repo")
 add_requires("doctest")
+add_requires("mem_comparable_closure")
 
 target("test")
    set_kind("binary")
@@ -13,6 +15,7 @@ target("test")
    if ( get_config("toolchain") ~= "clang" ) then
        set_enabled(false)
    end
+   add_packages("mem_comparable_closure")
    add_packages("doctest")
    set_languages("cxx17")
    add_includedirs("include")
