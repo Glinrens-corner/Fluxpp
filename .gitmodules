@@ -1,3 +1,0 @@
-[submodule "Flux++/libs/doctest"]
-	path = Flux++/libs/doctest
-	url = https://github.com/onqtam/doctest.git
