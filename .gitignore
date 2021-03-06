@@ -1,8 +1,5 @@
 *~
 \#*
-Makefile
-*.make
-bin
-obj
 build
 .xmake
+.*

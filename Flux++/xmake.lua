@@ -20,5 +20,5 @@ target("test")
    set_languages("cxx17")
    add_includedirs("include")
    set_optimize("fastest")
-   set_warnings("everything")
+   set_warnings("allextra")
    
