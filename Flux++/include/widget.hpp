@@ -8,29 +8,34 @@
 
 namespace fluxpp{ 
   
- namespace widget{
-   using mem_comparable_closure::Fun;
+ namespace widgets{
+   using mem_comparable_closure::Function;
    using std::tuple;
    using std::array;
    
    struct AppEvent{
      std::string target;  
    };
-   
 
-   
-   struct WidgetReturnType{};
-   
    template<class return_t>
    struct Filter {
+     Filter( std::string target_):target(std::move(target_)){ };
      std::string target;
-     return_t (*fn)(void*); 
+     //     return_t (*fn)(void*); 
    };
    
    template<class app_event_t, class gui_event_t>
    struct EventHandler {
-     Fun<app_event_t,gui_event_t> function;
+     Function<app_event_t,gui_event_t> function;
    };
+   
+   namespace screen {
+     
+   }
+   
+   namespace window {
+
+   }
    
    enum class WidgetClass{
      application,
@@ -44,8 +49,35 @@ namespace fluxpp{
    template<WidgetClass widget_class>
    struct get_render_return_type;
 
-   // //   template<>
-   // struct get_render_return_type
+
+   class ApplicationReturnContainerBase{
+
+   };
+
+   template<class ...arg_ts>
+   class ApplicationReturnContainer : public ApplicationReturnContainerBase{
+   public:
+     ApplicationReturnContainer(arg_ts ... args ): widgets_(std::make_tuple(std::move(args)... )) {};
+   private:
+     std::tuple<arg_ts...> widgets_;
+   };
+   
+   template < class ...arg_ts  >
+   ApplicationReturnContainerBase* make_application_return_container(   arg_ts... args ) {
+     return new ApplicationReturnContainer<arg_ts...>{std::move(args)... };
+   };
+
+   
+
+   template <WidgetClass widget_class>
+   struct get_render_return_type;
+
+   
+   template<>
+   struct get_render_return_type<WidgetClass::application>{
+     using type = int;
+     
+   };
    
    template<WidgetClass widget_class_, class ... Ts>
    class Widget;
@@ -57,12 +89,26 @@ namespace fluxpp{
      using render_return_type = typename get_render_return_type<widget_class_>::type;
    private:
      tuple<Filter<state_ts>...> filters ;
-     Fun< render_return_type, state_ts...> render;
+     Function< render_return_type, state_ts...> render;
      tuple<EventHandler<app_event_t, event_ts>...> event_handlers;
    };
 
+   template<class ... state_ts>
+   class Widget<WidgetClass::application,  state_ts...>{
+   public:
+     using render_return_type = typename get_render_return_type<WidgetClass::application>::type;
+     using filter_tuple_type = tuple<Filter<state_ts>...>;
+     using render_function_type = Function<render_return_type, state_ts...>;
+   private:
+     tuple<Filter<state_ts>...> filters ;
+     Function<render_return_type, state_ts...> render_function;
+   };
    
-   // Widget( filters, renderfn, event_handlers);
+   namespace app{
+     template<class ...state_ts>
+     using App = Widget< WidgetClass::application, state_ts...>;
+
+   } //app
  }// widget
   
 } // fluxpp
