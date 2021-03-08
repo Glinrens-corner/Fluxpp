@@ -45,24 +45,21 @@ Widget<SubscribeTo<bool>,
 				 [] (ButtonReleaseEvent event )->AppEventContainer
 				 {return AppEvent("state/button");}
 				 );
-
 /*
-Window<> window =WindowBuilder0{}
+Window<> window =WindowBuilder{}
   .without_filter()
   .with_render_function([]( ){ return make_window_return_container( button); })
   .without_event_handler()
   .build();
 
-Screen<> screen =ScreenBuilder0{}
+Screen<> screen =ScreenBuilder{}
   .without_filter()
   .with_render_function([]( ){ return make_screen_return_container( window); })
   .without_event_handler()
   .build();
-
 */
-
 TEST_CASE("widget"){
-  using fluxpp::widgets::app::App;
+  using fluxpp::widgets::application::Application;
   using namespace fluxpp::widgets ;
 };
 
