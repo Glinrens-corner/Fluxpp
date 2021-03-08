@@ -6,29 +6,74 @@
 #include <mem_comparable_closure.hpp>
 #include "gui_event.hpp"
 
+namespace mem_comparable_closure{
+  namespace concepts {
+  template<>
+  struct is_specialized<fluxpp::events::ButtonPressEvent>: public std::true_type{};
+  template<>
+  struct is_specialized<fluxpp::events::ButtonReleaseEvent>: public std::true_type{};
+  }
+}
 namespace fluxpp{ 
   
  namespace widgets{
    using mem_comparable_closure::Function;
+   using mem_comparable_closure::ClosureMaker;
    using std::tuple;
    using std::array;
    
    struct AppEvent{
+     AppEvent(std::string target):target(target){};
      std::string target;  
    };
 
+   struct AppEventContainer{
+     AppEventContainer(AppEvent event):event(std::move(event)){};
+     AppEvent event;
+   };
+   
    template<class return_t>
    struct Filter {
      Filter( std::string target_):target(std::move(target_)){ };
      std::string target;
-     //     return_t (*fn)(void*); 
+     // ; 
    };
    
    template<class app_event_t, class gui_event_t>
-   struct EventHandler {
-     Function<app_event_t,gui_event_t> function;
+   class EventHandler {
+   public:
+     template<class T>
+     EventHandler(T fn ):
+       function_(ClosureMaker<AppEventContainer, gui_event_t>::make(fn).as_fun()) {};
+     template<>
+     EventHandler(Function<AppEventContainer,gui_event_t> function):
+       function_(std::move(function)){};
+   public:
+       Function<AppEventContainer,gui_event_t> function_;
    };
    
+   namespace builtin{
+     enum class Color{
+       black,
+       white
+     };
+     
+     class ColorWidget{
+     public:
+       ColorWidget(Color color):color_(color){};
+       ColorWidget& at(int x, int y) {return *this; };
+     private:
+       Color color_;
+     };
+
+     class TextWidget{
+     public:
+       TextWidget(std::string text):text_(std::move(text)){}
+       TextWidget& at(int x, int y) {return *this; };
+     private:
+       std::string text_;
+     };
+   };
    namespace screen {
      
    }
@@ -37,6 +82,135 @@ namespace fluxpp{
 
    }
    
+   template<class ...T>
+   struct SubscribeTo{
+     template< template <class >typename C >
+     using map = SubscribeTo<C<T>...>;
+     template<template<class ...>typename C>
+     using apply = C<T...>;
+
+     
+   };
+   
+   template<class ...T>
+   struct ListenFor{
+     template< template <class >typename C >
+     using map = ListenFor<C<T>...>;
+     template<template<class ...>typename C>
+     using apply = C<T...>;
+     
+   };
+
+   class WidgetReturnContainerBase{};
+
+   class WidgetReturnContainer : public WidgetReturnContainerBase{};
+
+   template <class ...Arg_ts>
+   WidgetReturnContainerBase * make_widget_return_container(Arg_ts...){
+     return new WidgetReturnContainer{};
+   };
+   
+   template<class T1, class T2>
+   struct  Widget{ };
+
+   template<class T, class V>
+   EventHandler<AppEvent, T> event_handler_from_lambda(V lam){
+     return EventHandler(  ClosureMaker<AppEvent,T>::make(lam).as_fun() );
+   };
+   
+   struct WidgetBuilder{
+   private:
+     template<class ...F>
+     using to_fn_ptr = WidgetReturnContainerBase*(*)(F... );
+     template<class ...F>
+     using to_closure_maker = ClosureMaker<WidgetReturnContainerBase*, F...>;
+     template<class ...F>
+     using to_function = Function<WidgetReturnContainerBase*, F...>;
+     template <class T>
+     using to_event_handler = EventHandler<AppEvent,T>; 
+   public:
+     // OK, normally a Builder returns itself. We do this a bit differently here as the builder also collects the types of its arguments. 
+     // The builder has 4 main states.
+     //   state 0 (WidgetBuilder) the sourrounding state
+     //   state 1 when Filters are set
+     //   state 2 when also the render function is set
+     //   state 2.5 when the subscribed to EventTypes are set
+     //   state 3 when the event handler are set.
+     template <class subscriptions_t, class listened_for_t>
+     struct WidgetBuilderState2_5;
+
+     template < class subscriptions_t,  class ... listened_for_ts  >
+     struct WidgetBuilderState2_5<subscriptions_t, ListenFor<listened_for_ts...>>{
+     private:
+       using listened_for_t = ListenFor<listened_for_ts...>;
+       using filters_tuple_t = typename subscriptions_t::template map<Filter>::template apply<std::tuple>;
+       using function_t = typename subscriptions_t::template apply<to_function> ;
+     public:
+       WidgetBuilderState2_5(filters_tuple_t filters, function_t function):filters(filters), render_function(std::move(function)){};
+       template<class ...Arg_ts>
+       
+       decltype(auto) with_event_handling_lambdas(Arg_ts...args){
+	 
+	 auto tpl =  std::make_tuple(EventHandler<AppEvent, listened_for_ts>(args ) ... );
+	   
+	 return Widget<subscriptions_t, listened_for_t>(/*std::move(this->filters),
+
+std::move(this->render_function),*/
+							
+);
+       };
+       filters_tuple_t filters;
+       function_t render_function;
+
+     };
+     // sub_t is for a SubscribeTo<...> class
+     template <class sub_t>
+     struct WidgetBuilderState2{
+     private:
+       using filters_tuple_t = typename sub_t::template map<Filter>::template apply<std::tuple>;
+       using function_t = typename sub_t::template apply<to_function> ;
+     public:
+       WidgetBuilderState2(filters_tuple_t filters, function_t function):filters(filters), render_function(std::move(function)){
+	 };
+       
+       template<class ...listened_for_ts>
+       decltype(auto) for_events(){
+	 return WidgetBuilderState2_5<sub_t, ListenFor<listened_for_ts...>>(this->filters, std::move(this->render_function) );
+       };
+       
+       filters_tuple_t filters;
+       function_t render_function;
+     };
+
+     template <class sub_t>
+     struct WidgetBuilderState1{
+       
+       template<class T>
+       decltype(auto) with_render_lambda(T fn){
+	 using fn_ptr_t  =  typename sub_t::template apply< to_fn_ptr>;
+
+	 // casting to a function pointer to make sure it is a non capturing lambda
+	 fn_ptr_t fn_ptr = fn;
+	 using closure_maker_t = typename sub_t::template apply<to_closure_maker>;
+	 using function_t = typename sub_t::template apply<to_function>;
+	 
+	 return WidgetBuilderState2<sub_t>(this->filters, closure_maker_t::make(fn_ptr).as_fun());
+       };
+       
+       typename sub_t::template map<Filter>::template apply<std::tuple> filters;
+     };
+     
+     template<class ... subscription_ts>
+     WidgetBuilderState1<SubscribeTo<subscription_ts...>>
+         with_filters(Filter<subscription_ts>... filters){
+       return WidgetBuilderState1<SubscribeTo<subscription_ts...> >{std::make_tuple(filters...)};
+     };
+     
+     WidgetBuilderState1<SubscribeTo<>> without_filters(){
+       return WidgetBuilderState1<SubscribeTo<>>{std::make_tuple()};
+     };
+     
+   };
    enum class WidgetClass{
      application,
      display,
@@ -78,11 +252,10 @@ namespace fluxpp{
      using type = int;
      
    };
-   
+
+   /*   
    template<WidgetClass widget_class_, class ... Ts>
    class Widget;
-
-   
    template<WidgetClass widget_class_,  class app_event_t, class ... event_ts , class ... state_ts>
    class Widget<widget_class_, tuple<EventHandler<app_event_t, event_ts>...>, state_ts...>{
    public:
@@ -103,11 +276,9 @@ namespace fluxpp{
      tuple<Filter<state_ts>...> filters ;
      Function<render_return_type, state_ts...> render_function;
    };
-   
+   */
    namespace app{
-     template<class ...state_ts>
-     using App = Widget< WidgetClass::application, state_ts...>;
-
+     struct App{};
    } //app
  }// widget
   
