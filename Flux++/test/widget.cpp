@@ -26,24 +26,26 @@ Widget<SubscribeTo<bool>,
   .with_filters(Filter<bool>("state/button"))
   .with_render_lambda([](bool clicked){
 	if ( clicked) {
-	  return make_widget_return_container(ColorWidget(Color::white ).at(0,0),
+	  return make_widget_return_container(Size{.width=300, .height=150},
+					      ColorWidget(Color::white ).at(0,0),
 					      TextWidget("Click Me").at(0,0)
 					      );
 	} else {
-	  return make_widget_return_container(ColorWidget(Color::black ).at(0,0),
+	  return make_widget_return_container(Size{.width=300, .height=150},
+					      ColorWidget(Color::black ).at(0,0),
 					      TextWidget("Click Me").at(0,0)
 					      );
 
 	};
     })
   .for_events<ButtonPressEvent, ButtonReleaseEvent>()
-  .with_event_handling_lambdas([](ButtonPressEvent event)->AppEventContainer
+  .build_with_event_handling_lambdas([](ButtonPressEvent event)->AppEventContainer
 				 {return AppEvent("state/button");},
-				 
+
 				 [] (ButtonReleaseEvent event )->AppEventContainer
 				 {return AppEvent("state/button");}
 				 );
-//  .build();
+
 /*
 Window<> window =WindowBuilder0{}
   .without_filter()
@@ -56,7 +58,7 @@ Screen<> screen =ScreenBuilder0{}
   .with_render_function([]( ){ return make_screen_return_container( window); })
   .without_event_handler()
   .build();
-						       
+
 */
 
 TEST_CASE("widget"){
