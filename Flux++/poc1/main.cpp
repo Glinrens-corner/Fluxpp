@@ -1,12 +1,16 @@
-#include <doctest/doctest.h>
 #include <mem_comparable_closure.hpp>
 #include "widget.hpp"
 #include "gui_event.hpp"
+#include "gui.hpp"
+#include "backend/xcb_backend.hpp"
 
+using fluxpp::Gui;
+using fluxpp::backend::XCBBackend;
 
 using namespace mem_comparable_closure;
 
 using namespace fluxpp::widgets::screen;
+using namespace fluxpp::widgets::application;
 
 using namespace fluxpp::widgets;
 
@@ -45,21 +49,23 @@ Widget<SubscribeTo<bool>,
 				 [] (ButtonReleaseEvent event )->AppEventContainer
 				 {return AppEvent("state/button");}
 				 );
-/*
-Window<> window =WindowBuilder{}
-  .without_filter()
-  .with_render_function([]( ){ return make_window_return_container( button); })
-  .without_event_handler()
-  .build();
 
-Screen<> screen =ScreenBuilder{}
-  .without_filter()
-  .with_render_function([]( ){ return make_screen_return_container( window); })
-  .without_event_handler()
-  .build();
-*/
-TEST_CASE("widget"){
-  using fluxpp::widgets::application::Application;
-  using namespace fluxpp::widgets ;
+Window<SubscribeTo<>, ListenFor<>> mywindow =WindowBuilder{}
+  .without_filters()
+  .with_render_lambda([]( ){ return make_window_return_container( Size{300,400},button); })
+  .build_without_event_handlers();
+
+Screen<SubscribeTo<>, ListenFor<>> myscreen =ScreenBuilder{}
+  .without_filters()
+  .with_render_lambda([]( ){ return make_screen_return_container(ScreenSettings{},mywindow); })
+  .build_without_event_handlers();
+
+Application<SubscribeTo<>, ListenFor<>> myapp =ApplicationBuilder{}
+  .without_filters()
+  .with_render_lambda([]( ){ return make_application_return_container(myscreen); })
+  .build_without_event_handlers();
+
+int main() {
+  XCBBackend backend();
+  Gui gui( ); 
 };
-
