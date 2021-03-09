@@ -6,15 +6,6 @@
 #include <mem_comparable_closure.hpp>
 #include "gui_event.hpp"
 
-namespace mem_comparable_closure{
-  namespace concepts {
-    template<>
-    struct is_specialized<fluxpp::events::ButtonPressEvent>: public std::true_type{};
-    
-    template<>
-    struct is_specialized<fluxpp::events::ButtonReleaseEvent>: public std::true_type{};
-  }
-}
 namespace fluxpp{
   //using declarations
   // Size
