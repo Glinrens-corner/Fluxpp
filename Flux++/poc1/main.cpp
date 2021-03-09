@@ -66,6 +66,11 @@ Application<SubscribeTo<>, ListenFor<>> myapp =ApplicationBuilder{}
   .build_without_event_handlers();
 
 int main() {
-  XCBBackend backend();
-  Gui gui( ); 
+  using namespace fluxpp;
+  using widgets::AppEvent;
+  XCBBackend backend{};
+  Gui mygui{};
+  mygui.add_state( state::State<bool>(true,[](bool state, const AppEvent& event  ){
+	return std::make_pair( not state , std::vector<AppEvent>{});
+      }));
 };

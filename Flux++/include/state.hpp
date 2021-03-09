@@ -9,11 +9,21 @@
 namespace fluxpp{
   using mem_comparable_closure::Function;
   using mem_comparable_closure::ClosureMaker;
+  using widgets::AppEvent;
   namespace state{
+    class BaseState{};
+    
     template <class T>
-    struct State{
+    class  State: public BaseState{
     public:
-      using reducer_t Function<std::pair<T, std::vector<AppEvent > >, T,AppEvent>;
+      using reducer_t = Function<std::pair<T, std::vector<AppEvent > >, T,const AppEvent&>;
+      template<class fn_t>
+      State(T state, fn_t fn ):
+	state_(state),
+	reducer_(ClosureMaker<
+		 std::pair<T, std::vector<AppEvent> >,
+		 T,
+		 const AppEvent&>::make(fn ).as_fun()){}; 
     public:
       reducer_t reducer_;
       T state_;
