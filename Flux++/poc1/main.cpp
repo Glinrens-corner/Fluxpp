@@ -4,7 +4,7 @@
 #include "gui.hpp"
 #include "backend/xcb_backend.hpp"
 
-using fluxpp::Gui;
+using fluxpp::Ui;
 using fluxpp::backend::XCBBackend;
 
 using namespace mem_comparable_closure;
@@ -68,9 +68,12 @@ Application<SubscribeTo<>, ListenFor<>> myapp =ApplicationBuilder{}
 int main() {
   using namespace fluxpp;
   using widgets::AppEvent;
-  XCBBackend backend{};
-  Gui mygui{};
-  mygui.add_state( state::State<bool>(true,[](bool state, const AppEvent& event  ){
-	return std::make_pair( not state , std::vector<AppEvent>{});
-      }));
+  auto backend = XCBBackend::create() ;
+  Ui mygui{&backend};
+  mygui.add_state_slice("state/button", state::StateSlice<bool>(true,
+								[](bool state, const AppEvent& event  ){
+								  return std::make_pair( not state , std::vector<AppEvent>{});
+								}
+								)
+			);
 };

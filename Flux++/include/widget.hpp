@@ -60,21 +60,31 @@ namespace fluxpp{
       std::string target;
     };
   }
-
+  
   // EventHandler
   namespace widgets{
+    namespace detail{
+      template<class app_event_t, class gui_event_t,class T>
+      struct event_handler_helper{
+	static constexpr decltype(auto)convert( T&& fn) {
+	  return ClosureMaker<AppEventContainer, gui_event_t>::make(fn).as_fun(); };
+      };
+      template<class app_event_t,class gui_event_t>
+      struct event_handler_helper<app_event_t, gui_event_t, Function<AppEventContainer,gui_event_t>>{
+	static constexpr decltype(auto) convert( Function<AppEventContainer,gui_event_t>&& fn) {
+	  return fn; };
+      };
+    }
     template< class app_event_t, class gui_event_t>
     class EventHandler {
     public:
       template<class T>
       explicit EventHandler(T fn ):
-	function_(ClosureMaker<AppEventContainer, gui_event_t>::make(fn).as_fun()) { };
-      template<>
-      explicit EventHandler(Function<AppEventContainer,gui_event_t> function):
-	function_(std::move(function)){};
-      
-      template<>
-      EventHandler(EventHandler<app_event_t,gui_event_t>& other ):
+	function_( detail
+		   ::event_handler_helper<app_event_t, gui_event_t, T>
+		   ::convert(std::move(fn))) { };
+		   
+      EventHandler(const EventHandler<app_event_t,gui_event_t>& other ):
 	function_(other.function_.copy()) { };
     public:
       Function<AppEventContainer,gui_event_t> function_;
@@ -126,8 +136,11 @@ namespace fluxpp{
   // Widget
   // WidgetBuilder 
   namespace widgets {
+    class BaseWidget {};
+
+    
     template<class subscriptions_t, class listened_for_t>
-    struct  Widget{
+    struct  Widget:public BaseWidget{
     private:
       template<class ...F>
       using to_function = Function<WidgetReturnContainerBase*, F...>;
@@ -287,7 +300,7 @@ namespace fluxpp{
 	white
       };
       
-      class ColorWidget{
+      class ColorWidget:public BaseWidget{
       public:
 	ColorWidget(Color color):color_(color){};
 	LocatedWidget<ColorWidget> at(int16_t x, int16_t y) {
@@ -296,7 +309,7 @@ namespace fluxpp{
 	Color color_;
       };
 
-      class TextWidget{
+      class TextWidget:public BaseWidget{
       public:
 	TextWidget(std::string text):text_(std::move(text)){}
 	LocatedWidget<TextWidget> at(int16_t x, int16_t y) {
@@ -329,7 +342,7 @@ namespace fluxpp{
 	return new ScreenReturnContainer<Arg_ts...>(settings, std::make_tuple(args...));
       };
     template<class subscriptions_t, class listened_for_t>
-    struct  Screen{
+    struct  Screen:public BaseWidget{
     private:
       template<class ...F>
       using to_function = Function<ScreenReturnContainerBase*, F...>;
@@ -512,7 +525,7 @@ namespace fluxpp{
       return new WindowReturnContainer<Arg_ts...>(size, std::make_tuple(args...));
     };
     template<class subscriptions_t, class listened_for_t>
-    struct  Window{
+    struct  Window:public BaseWidget{
     private:
       template<class ...F>
       using to_function = Function<WindowReturnContainerBase*, F...>;
@@ -699,7 +712,7 @@ namespace fluxpp{
     
     namespace application{
       template<class subscriptions_t, class listened_for_t>
-      struct  Application{
+      struct  Application:public BaseWidget{
       private:
 	template<class ...F>
 	using to_function = Function<ApplicationReturnContainerBase*, F...>;

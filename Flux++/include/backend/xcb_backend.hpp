@@ -6,7 +6,8 @@ namespace fluxpp{
   namespace backend{
     
     class XCBBackend: public BaseBackend{
-
+    public:
+      static XCBBackend create(){return XCBBackend{}; };
 
     };
   }
