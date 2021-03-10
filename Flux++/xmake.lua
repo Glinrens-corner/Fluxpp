@@ -1,6 +1,7 @@
 set_config("toolchain", "clang")
 
 add_repositories("private-repo private_repo")
+add_requires("boost")
 add_requires("doctest")
 add_requires("mem_comparable_closure")
 
@@ -10,6 +11,7 @@ target("test")
    add_files("test/*.cpp")
    add_packages("mem_comparable_closure")
    add_packages("doctest")
+   add_packages("boost")
    set_languages("cxx17")
    add_includedirs("include")
    set_optimize("debug")

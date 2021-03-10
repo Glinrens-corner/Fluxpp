@@ -76,4 +76,5 @@ int main() {
 								}
 								)
 			);
+  mygui.set_application_widget( myapp);
 };

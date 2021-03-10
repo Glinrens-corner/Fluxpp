@@ -1,11 +1,28 @@
 #ifndef GUI_HPP
 #define GUI_HPP
 #include <memory>
+#include <queue>
 #include "state.hpp"
 #include "backend/base_backend.hpp"
 #include "widget.hpp"
 
 namespace fluxpp{
+  class WidgetNode;
+  
+  class RenderTree{
+  public:
+    RenderTree(std::unique_ptr<widgets::BaseWidget>&&,
+	       std::queue<AppEvent>*,
+	       backend::BaseBackend*,
+	       state::State*);
+    RenderTree(const RenderTree &) =delete;
+    void prepare_render();
+    ~RenderTree();
+  private:
+    class RenderTreeImpl;
+    RenderTreeImpl* impl;
+  };
+    
   class Ui{
   public:
     Ui(backend::BaseBackend* backend):backend_(backend), state_(std::make_unique<state::State>()) {};
@@ -15,14 +32,15 @@ namespace fluxpp{
     };
     template<class ...Ts>
     void set_application_widget(widgets::application::Application<Ts...> application){
-      if( this->application_){
+      if( this->render_tree_){
 	throw std::exception();
       };
-      this->application_ = std::make_unique( application );
+      this->render_tree_ = std::unique_ptr<RenderTree>( new RenderTree(std::make_unique<widgets::BaseWidget>( application ), nullptr, nullptr, nullptr));
     };
+    
   private:
     std::unique_ptr<state::State> state_;
-    std::unique_ptr<widgets::BaseWidget> application_{};
+    std::unique_ptr<RenderTree> render_tree_{};
     backend::BaseBackend* backend_; 
   };
 };

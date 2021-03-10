@@ -136,7 +136,10 @@ namespace fluxpp{
   // Widget
   // WidgetBuilder 
   namespace widgets {
-    class BaseWidget {};
+    class BaseWidget {
+
+      virtual std::vector<std::string*> get_subscriptions()=0;
+    };
 
     
     template<class subscriptions_t, class listened_for_t>
@@ -164,6 +167,10 @@ namespace fluxpp{
 	filters_(std::move(filters)),
 	render_function_ (std::move(render_function)),
 	listeners_(std::move(listeners)){};
+      std::vector<std::string*> get_subscriptions(){
+	//TODO, iterate over the tuple
+
+      };
     private:
       filters_tuple_t filters_;
       function_t render_function_;
