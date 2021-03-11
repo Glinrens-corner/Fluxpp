@@ -33,9 +33,10 @@ namespace fluxpp{
     template<class ...Ts>
     void set_application_widget(widgets::application::Application<Ts...> application){
       if( this->render_tree_){
+	// there was already an application set.
 	throw std::exception();
       };
-      this->render_tree_ = std::unique_ptr<RenderTree>( new RenderTree(std::make_unique<widgets::BaseWidget>( application ), nullptr, nullptr, nullptr));
+      this->render_tree_ = std::unique_ptr<RenderTree>( new RenderTree(std::unique_ptr<widgets::BaseWidget>(new widgets::application::Application{ application} ), nullptr, nullptr, nullptr));
     };
     
   private:

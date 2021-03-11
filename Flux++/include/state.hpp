@@ -2,6 +2,7 @@
 #define FLUXPP_STATE_HPP
 #include <tuple>
 #include <vector>
+#include <set>
 #include <mem_comparable_closure.hpp>
 #include "widget.hpp"
 
@@ -42,23 +43,47 @@ namespace fluxpp{
       T state_;
     };
 
-    class State{
+    class StateImpl;
 
+    class SynchronousStateInterface {
+    public:
+      SynchronousStateInterface():impl(nullptr){};
+      SynchronousStateInterface(StateImpl* impl );
+      SynchronousStateInterface(const SynchronousStateInterface& ) =delete;
+      SynchronousStateInterface(SynchronousStateInterface&& other):impl(other.impl){
+	other.impl=nullptr;
+      };
+      SynchronousStateInterface& operator=(SynchronousStateInterface& )=delete;
+      SynchronousStateInterface& operator=(SynchronousStateInterface&& other){
+	std::swap(other.impl, this->impl);
+	return *this;
+      };
+
+      std::set<std::string> get_updated_slices();
+      
+      ~SynchronousStateInterface();
+    private:
+      StateImpl* impl;
+    };
+    
+    class State{
     public:
       State();
       State(State&& old):impl(old.impl){ };
       State(const State& old )= delete;
       State& operator=(State&& old) {
-	this->impl=old.impl;
-	old.impl=nullptr;
+	std::swap(this->impl, old.impl);
 	return *this;};
       State& operator=(const State&)=delete;
       ~State();
+      SynchronousStateInterface get_synchronous_interface( ){
+	return SynchronousStateInterface{this->impl};
+      };
+      
       void add_slice(const std::string&,
 		     std::unique_ptr<BaseStateSlice>&& slice);
-      std::pair<bool,std::vector<AppEvent>> dispatch_event(const AppEvent&  event);
+      void  dispatch_event( AppEvent  event);
     private:
-      class StateImpl;
       StateImpl * impl;
     };
   }; // state

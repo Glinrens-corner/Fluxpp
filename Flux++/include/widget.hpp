@@ -137,8 +137,8 @@ namespace fluxpp{
   // WidgetBuilder 
   namespace widgets {
     class BaseWidget {
-
-      virtual std::vector<std::string*> get_subscriptions()=0;
+    public:
+      virtual std::vector<const std::string*> get_subscriptions()const=0;
     };
 
     
@@ -167,11 +167,29 @@ namespace fluxpp{
 	filters_(std::move(filters)),
 	render_function_ (std::move(render_function)),
 	listeners_(std::move(listeners)){};
-      std::vector<std::string*> get_subscriptions(){
-	//TODO, iterate over the tuple
-
+      std::vector<const std::string*> get_subscriptions()const{
+	std::vector<const std::string*> vec{};
+	this->get_subscription<0>(this->filters_,vec);
+	return vec;
       };
     private:
+      template <int i, class ...tuple_ts>
+      typename std::enable_if<(i<sizeof...(tuple_ts)) , void>::type
+      get_subscription( const std::tuple<tuple_ts...>& filters,
+			std::vector<const std::string*> vec )const{
+	vec.push_back(&(std::get<i>(filters).target));
+	this->get_subscription<i+1>(filters,vec);
+      };
+
+      template <int i, class ...tuple_ts>
+      typename std::enable_if<not (i<sizeof...(tuple_ts)) , void>::type
+      get_subscription( const std::tuple<tuple_ts...>& ,
+			std::vector< const std::string*>  )const{
+	
+	
+      };
+
+      
       filters_tuple_t filters_;
       function_t render_function_;
       listener_tuple_t listeners_;
@@ -310,6 +328,9 @@ namespace fluxpp{
       class ColorWidget:public BaseWidget{
       public:
 	ColorWidget(Color color):color_(color){};
+	std::vector<const std::string*> get_subscriptions()const{
+	  return {};
+	}
 	LocatedWidget<ColorWidget> at(int16_t x, int16_t y) {
 	  return LocatedWidget<ColorWidget>(*this, Coordinate{x,y}); };
       private:
@@ -318,6 +339,9 @@ namespace fluxpp{
 
       class TextWidget:public BaseWidget{
       public:
+	std::vector<const std::string*> get_subscriptions()const{
+	  return {};
+	}
 	TextWidget(std::string text):text_(std::move(text)){}
 	LocatedWidget<TextWidget> at(int16_t x, int16_t y) {
 	  return LocatedWidget<TextWidget>(*this, Coordinate{x,y}); };
@@ -374,6 +398,11 @@ namespace fluxpp{
 	filters_(std::move(filters)),
 	render_function_ (std::move(render_function)),
 	listeners_(std::move(listeners)){};
+
+      	std::vector<const std::string*> get_subscriptions()const{
+	  return {};
+	}
+
     private:
       filters_tuple_t filters_;
       function_t render_function_;
@@ -556,6 +585,11 @@ namespace fluxpp{
 	filters_(std::move(filters)),
 	render_function_ (std::move(render_function)),
 	listeners_(std::move(listeners)){};
+      
+      	std::vector<const std::string*> get_subscriptions()const{
+	  return {};
+	}
+
     private:
       filters_tuple_t filters_;
       function_t render_function_;
@@ -744,6 +778,10 @@ namespace fluxpp{
 	  filters_(std::move(filters)),
 	  render_function_ (std::move(render_function)),
 	  listeners_(std::move(listeners)){};
+	std::vector<const std::string*> get_subscriptions()const{
+	  return {};
+	}
+
       private:
 	filters_tuple_t filters_;
 	function_t render_function_;
