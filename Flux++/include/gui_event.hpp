@@ -1,5 +1,5 @@
-#ifndef GUI_EVENT_HPP
-#define GUI_EVENT_HPP
+#ifndef FLUXPP_GUI_EVENT_HPP
+#define FLUXPP_GUI_EVENT_HPP
 #include <cstdint>
 
 namespace fluxpp{
@@ -153,4 +153,4 @@ namespace fluxpp{
 }// fluxpp
 
 
-#endif //GUI_EVENT_HPP
+#endif //FLUXPP_GUI_EVENT_HPP

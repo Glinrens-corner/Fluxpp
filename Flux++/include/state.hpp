@@ -23,7 +23,7 @@ namespace fluxpp{
     template <class T>
     class  StateSlice final: public BaseStateSlice{
     public:
-      using reducer_t = Function<
+     using reducer_t = Function<
       std::pair<T, std::vector<AppEvent > >, T,const AppEvent&>;
       template<class fn_t>
       StateSlice(T state, fn_t fn ):

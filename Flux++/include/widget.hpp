@@ -1,10 +1,12 @@
-#ifndef WIDGET_HPP
-#define WIDGET_HPP
+#ifndef FLUXPP_WIDGET_HPP
+#define FLUXPP_WIDGET_HPP
+
 #include <string>
 #include <tuple>
 #include <array>
 #include <mem_comparable_closure.hpp>
 #include "gui_event.hpp"
+#include "app_event.hpp"
 
 namespace fluxpp{
   //using declarations
@@ -22,20 +24,6 @@ namespace fluxpp{
     };
   };
   
-  // AppEvent
-  // AppEventContainer
-  namespace widgets{
-    struct AppEvent{
-      AppEvent(std::string target):target(target){};
-      std::string target;
-    };
-    
-
-    struct AppEventContainer{
-      AppEventContainer(AppEvent event):event(std::move(event)){};
-      AppEvent event;
-    };
-  }
   
   // LocatedWidget
   namespace widgets{
@@ -922,4 +910,4 @@ namespace fluxpp{
 
 
 
-#endif
+#endif //FLUXPP_WIDGET_HPP

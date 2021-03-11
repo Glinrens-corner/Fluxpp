@@ -3,7 +3,7 @@
 #include <map>
 #include <set>
 #include <vector>
-#include "gui.hpp"
+#include "ui.hpp"
 
 namespace fluxpp {
   // NOTE, we probably can work with generational indices as uuid.
@@ -40,16 +40,32 @@ namespace fluxpp {
       this->insert(this->application_uuid, WidgetNode(std::move( application)));
       
     };
-    void prepare_render( ){
+    void prepare_render(bool rerender_all){
       auto state_ifc = this->state_->get_synchronous_interface();
       auto command_creator = this->backend_->get_asynchronous_interface();
 
       std::set<std::string> updated_slices = state_ifc.get_updated_slices();
-      std::set<uuid_t> rerender_widget{};
-      // TODO
+      std::set<uuid_t> rerender_widgets{};
+      if (rerender_all){
+	for ( const auto & [key,value ] : this->widgets_){
+	  rerender_widgets.insert(key);
+	}
+      } else {
+	for (const auto & slice : updated_slices){
+	  const auto & index_set = this->subscribed_to.at(slice);
+	  rerender_widgets.insert(index_set.cbegin(), index_set.cend());
+	};
+      };
+      this->render_widgets(command_creator.get(),&state_ifc,rerender_widgets );
       auto color_command = command_creator->get_draw_color_command();
     };
 
+    void render_widgets(
+        backend::AsynchronousBackendInterfaceBase *,
+        fluxpp::state::SynchronousStateInterface*,
+	const std::set<uuid_t>& rerender_widgets){
+      
+    };
     void delete_item (){
     };
     
@@ -71,17 +87,24 @@ namespace fluxpp {
     std::map<std::string, std::set<uuid_t>> subscribed_to{} ;
   };
 
-  RenderTree::RenderTree(std::unique_ptr<widgets::BaseWidget>&& application,
-			 std::queue<AppEvent>* app_queue,
-			 backend::BaseBackend* backend,
-			 state::State* state_ptr)
-    :impl( new RenderTreeImpl(std::move(application),
-			      app_queue,
-			      backend,
-			      state_ptr) )
-  {};
+  RenderTree::RenderTree(
+      std::unique_ptr<widgets::BaseWidget>&& application,
+      std::queue<AppEvent>* app_queue,
+      backend::BaseBackend* backend,
+      state::State* state_ptr)
+    :impl(
+	new RenderTreeImpl(
+	    std::move(application),
+	    app_queue,
+	    backend,
+	    state_ptr
+	)
+    ){};
   
-  void RenderTree::prepare_render(){ this->impl->prepare_render();};
+  void RenderTree::prepare_render(bool rerender_all){
+    this->impl->prepare_render(rerender_all);
+  };
+  
   RenderTree::~RenderTree(){
     if (this->impl){
       delete this->impl;

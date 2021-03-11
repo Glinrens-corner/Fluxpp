@@ -1,7 +1,7 @@
 #include <mem_comparable_closure.hpp>
 #include "widget.hpp"
 #include "gui_event.hpp"
-#include "gui.hpp"
+#include "ui.hpp"
 #include "backend/xcb_backend.hpp"
 
 using fluxpp::Ui;
@@ -69,12 +69,11 @@ int main() {
   using namespace fluxpp;
   using widgets::AppEvent;
   auto backend = XCBBackend::create() ;
-  Ui mygui{&backend};
+  Ui mygui{&backend, myapp};
   mygui.add_state_slice("state/button", state::StateSlice<bool>(true,
 								[](bool state, const AppEvent& event  ){
 								  return std::make_pair( not state , std::vector<AppEvent>{});
 								}
 								)
 			);
-  mygui.set_application_widget( myapp);
 };
