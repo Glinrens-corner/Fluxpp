@@ -7,7 +7,7 @@
 #include <mem_comparable_closure.hpp>
 #include "gui_event.hpp"
 #include "app_event.hpp"
-
+#include "render_visitor.hpp"
 namespace fluxpp{
   //using declarations
   // Size
@@ -19,11 +19,19 @@ namespace fluxpp{
     using events::Coordinate;
 
     struct Size{
-      int16_t width;
-      int16_t height;
+      int32_t width;
+      int32_t height;
     };
   };
-  
+
+  // BaseWidget
+  namespace widgets{
+    class BaseWidget {
+    public:
+      virtual std::vector<const std::string*> get_subscriptions()const=0;
+      //  virtual void accept(RenderVisitor& visitor )=0;
+    };
+  }// widgets
   
   // LocatedWidget
   namespace widgets{
@@ -34,46 +42,68 @@ namespace fluxpp{
       LocatedWidget(widget_t widget, Coordinate coord ):
         coordinate(coord),
 	widget(std::move(widget)){};
+
     public:
       Coordinate coordinate;
       widget_t widget;
     };
-  }
+  }// widgets
   
   // Filter
   namespace widgets{
     template<class return_t>
     struct Filter {
       Filter( std::string target_):target(std::move(target_)){ };
+      
       std::string target;
     };
   }
-  
+
   // EventHandler
   namespace widgets{
     namespace detail{
-      template<class app_event_t, class gui_event_t,class T>
+      // a little helper class to handle special EventHandler constructors
+      //
+      template<
+	class app_event_t,
+	class gui_event_t,
+	class T>
       struct event_handler_helper{
 	static constexpr decltype(auto)convert( T&& fn) {
-	  return ClosureMaker<AppEventContainer, gui_event_t>::make(fn).as_fun(); };
+	  return ClosureMaker<AppEventContainer, gui_event_t>
+	    ::make(fn)
+	    .as_fun();
+	};
       };
-      template<class app_event_t,class gui_event_t>
-      struct event_handler_helper<app_event_t, gui_event_t, Function<AppEventContainer,gui_event_t>>{
-	static constexpr decltype(auto) convert( Function<AppEventContainer,gui_event_t>&& fn) {
-	  return fn; };
+      
+      template<
+	class app_event_t,
+	class gui_event_t>
+      struct event_handler_helper<
+	app_event_t,
+	gui_event_t,
+	Function<AppEventContainer,gui_event_t> >{
+	static constexpr decltype(auto) convert(
+	    Function<AppEventContainer,gui_event_t>&& fn
+	) {
+	  return fn;
+	};
       };
-    }
+    }//detail
+    
     template< class app_event_t, class gui_event_t>
     class EventHandler {
     public:
       template<class T>
       explicit EventHandler(T fn ):
-	function_( detail
-		   ::event_handler_helper<app_event_t, gui_event_t, T>
-		   ::convert(std::move(fn))) { };
+	function_(
+	    detail
+	    ::event_handler_helper<app_event_t, gui_event_t, T>
+	    ::convert(std::move(fn))) { };
 		   
       EventHandler(const EventHandler<app_event_t,gui_event_t>& other ):
 	function_(other.function_.copy()) { };
+      
     public:
       Function<AppEventContainer,gui_event_t> function_;
     };
@@ -100,23 +130,56 @@ namespace fluxpp{
 
   // WidgetContainer
   namespace widgets{
-    class WidgetReturnContainerBase{};
-
-    template<class ...widget_ts>
-    class WidgetReturnContainer : public WidgetReturnContainerBase{
-      using widgets_tuple_t = std::tuple<widget_ts...> ;
+    struct WidgetData{
     public:
-      WidgetReturnContainer(Size size , widgets_tuple_t widgets)
-	: size_(size),
-	  widgets_(widgets) {};
-    private:
-      widgets_tuple_t widgets_;
-      Size size_ ;
+      WidgetData(Size size, std::vector<Coordinate> positions)
+	:size(size)
+	,positions(positions){}
+
+    public:
+      Size size;
+      std::vector<Coordinate> positions;
     };
 
+
+
+    
+    class WidgetReturnContainer {
+      using widgets_vector_t = std::vector<std::unique_ptr<BaseWidget>>;
+      
+    public:
+      WidgetReturnContainer(WidgetData data , widgets_vector_t widgets )
+	: data_(data),
+	  widgets_(std::move(widgets)) {};
+      
+    private:
+      WidgetData data_ ;
+      widgets_vector_t widgets_;
+    };
+    
+    namespace detail{
+      
+      template<class ...Arg_ts>
+      struct WidgetReturnContainerMaker;
+
+      template<class ...Ts>
+      struct WidgetReturnContainerMaker<Size,LocatedWidget<Ts>...>{
+	static WidgetReturnContainer make(Size size, LocatedWidget<Ts>...widgets ){
+	  std::vector<BaseWidget*> vec1{
+	    static_cast<BaseWidget*>(new Ts{widgets.widget})...
+	      };
+	  
+	  return WidgetReturnContainer(
+	      WidgetData(size, std::vector<Coordinate>{ widgets.coordinate...}),std::vector<std::unique_ptr<BaseWidget>>(vec1.cbegin(),vec1.cend())
+	  );
+	}
+      };
+    }//detail
+    
     template <class ...Arg_ts>
-    WidgetReturnContainerBase * make_widget_return_container( Size size, Arg_ts... args){
-      return new WidgetReturnContainer<Arg_ts...>(size, std::make_tuple(args...));
+    WidgetReturnContainer make_widget_return_container(  Arg_ts... args){
+       
+      return detail::WidgetReturnContainerMaker<Arg_ts...>::make( std::move(args)...);
     };
 
   }
@@ -124,17 +187,13 @@ namespace fluxpp{
   // Widget
   // WidgetBuilder 
   namespace widgets {
-    class BaseWidget {
-    public:
-      virtual std::vector<const std::string*> get_subscriptions()const=0;
-    };
 
     
     template<class subscriptions_t, class listened_for_t>
     struct  Widget:public BaseWidget{
     private:
       template<class ...F>
-      using to_function = Function<WidgetReturnContainerBase*, F...>;
+      using to_function = Function<WidgetReturnContainer, F...>;
       template <class T>
       using to_event_handler = EventHandler<AppEvent, T>;
 
@@ -160,6 +219,9 @@ namespace fluxpp{
 	this->get_subscription<0>(this->filters_,vec);
 	return vec;
       };
+      //      void accept(RenderVisitor& visitor ){
+      //	visitor.render_widget(this->filters, this->render_function_ );
+      //      }
     private:
       template <int i, class ...tuple_ts>
       typename std::enable_if<(i<sizeof...(tuple_ts)) , void>::type
@@ -187,13 +249,13 @@ namespace fluxpp{
     struct WidgetBuilder{
     private:
       template<class ...F>
-      using to_fn_ptr = WidgetReturnContainerBase*(*)(F... );
+      using to_fn_ptr = WidgetReturnContainer(*)(F... );
      
       template<class ...F>
-      using to_closure_maker = ClosureMaker<WidgetReturnContainerBase*, F...>;
+      using to_closure_maker = ClosureMaker<WidgetReturnContainer, F...>;
      
       template<class ...F>
-      using to_function = Function<WidgetReturnContainerBase*, F...>;
+      using to_function = Function<WidgetReturnContainer, F...>;
      
       template <class T>
       using to_event_handler = EventHandler<AppEvent,T>;
@@ -305,7 +367,8 @@ namespace fluxpp{
 
     };
   }// widgets
-  
+
+  // builtin
   namespace widgets {
     namespace builtin{
       enum class Color{
@@ -337,34 +400,61 @@ namespace fluxpp{
 	std::string text_;
       };
     };
-
   } // widgets
+
   namespace widgets{
     namespace screen {
+      
       struct ScreenSettings{};
       
-      class ScreenReturnContainerBase{};
 
-      template<class ...widget_ts>
-      class ScreenReturnContainer : public ScreenReturnContainerBase{
-	using widgets_tuple_t = std::tuple<widget_ts...> ;
+      class ScreenReturnContainer{
+	using widgets_vector_t = std::vector<std::unique_ptr<BaseWidget>> ;
       public:
-	ScreenReturnContainer(ScreenSettings settings , widgets_tuple_t widgets)
-	  :widgets_(widgets) {};
+	ScreenReturnContainer(ScreenSettings settings , widgets_vector_t widgets):settings_(settings)
+										 ,widgets_(std::move(widgets)) {};
       private:
-	widgets_tuple_t widgets_;
-	Size size_ ;
+	widgets_vector_t widgets_;
+	ScreenSettings settings_ ;
       };
 
-      template <class ...Arg_ts>
-      ScreenReturnContainerBase * make_screen_return_container( ScreenSettings settings, Arg_ts... args){
-	return new ScreenReturnContainer<Arg_ts...>(settings, std::make_tuple(args...));
+       
+    namespace detail{
+      
+      template<class ...Arg_ts>
+      struct ScreenReturnContainerMaker;
+
+      template<class ...Ts>
+      struct ScreenReturnContainerMaker<ScreenSettings,Ts...>{
+	static ScreenReturnContainer make(
+	    ScreenSettings settings, Ts...windows){
+	  std::vector<BaseWidget*> vec1{
+	    static_cast<BaseWidget*>(new Ts{std::move(windows)})...
+	      };
+	  
+	  return ScreenReturnContainer(
+	      settings
+	      ,std::vector<std::unique_ptr<BaseWidget>>(vec1.cbegin(),vec1.cend())
+	  );
+	}
       };
+    }//detail
+    
+    template <class ...Arg_ts>
+    ScreenReturnContainer make_screen_return_container(  Arg_ts... args){
+       
+      return detail::ScreenReturnContainerMaker<Arg_ts...>::make( std::move(args)...);
+    };
+
+
+    
+
+      
     template<class subscriptions_t, class listened_for_t>
     struct  Screen:public BaseWidget{
     private:
       template<class ...F>
-      using to_function = Function<ScreenReturnContainerBase*, F...>;
+      using to_function = Function<ScreenReturnContainer, F...>;
       template <class T>
       using to_event_handler = EventHandler<AppEvent, T>;
 
@@ -401,13 +491,13 @@ namespace fluxpp{
     struct ScreenBuilder{
     private:
       template<class ...F>
-      using to_fn_ptr = ScreenReturnContainerBase*(*)(F... );
+      using to_fn_ptr = ScreenReturnContainer(*)(F... );
      
       template<class ...F>
-      using to_closure_maker = ClosureMaker<ScreenReturnContainerBase*, F...>;
+      using to_closure_maker = ClosureMaker<ScreenReturnContainer, F...>;
      
       template<class ...F>
-      using to_function = Function<ScreenReturnContainerBase*, F...>;
+      using to_function = Function<ScreenReturnContainer, F...>;
      
       template <class T>
       using to_event_handler = EventHandler<AppEvent,T>;
@@ -526,41 +616,67 @@ namespace fluxpp{
 
     } // screen
   }//widgets
+  
   namespace widgets{
 
     namespace window {
-    class WindowReturnContainerBase{};
+      struct WindowSettings{
+	Size size;
+      };
 
-    template<class ...widget_ts>
-    class WindowReturnContainer : public WindowReturnContainerBase{
-      using widgets_tuple_t = std::tuple<widget_ts...> ;
-    public:
-      WindowReturnContainer(Size size , widgets_tuple_t widgets)
-	: size_(size),
-	  widgets_(widgets) {};
+      class WindowReturnContainer {
+	using widgets_vector_t = std::vector<std::unique_ptr<BaseWidget>> ;
+      public:
+      WindowReturnContainer(WindowSettings settings , widgets_vector_t widgets)
+	: settings_(settings),
+	  widgets_(std::move(widgets)) {};
     private:
-      widgets_tuple_t widgets_;
-      Size size_ ;
+      widgets_vector_t widgets_;
+      WindowSettings settings_ ;
     };
       
+      
+      namespace detail{
+      
+	template<class ...Arg_ts>
+	struct WindowReturnContainerMaker;
 
-    template <class ...Arg_ts>
-    WindowReturnContainerBase * make_window_return_container( Size size, Arg_ts... args){
-      return new WindowReturnContainer<Arg_ts...>(size, std::make_tuple(args...));
-    };
-    template<class subscriptions_t, class listened_for_t>
-    struct  Window:public BaseWidget{
-    private:
-      template<class ...F>
-      using to_function = Function<WindowReturnContainerBase*, F...>;
-      template <class T>
-      using to_event_handler = EventHandler<AppEvent, T>;
+      
+      
+	template<class ...Ts>
+	struct WindowReturnContainerMaker<Size,Ts...>{
+	  static WindowReturnContainer make(Size size, Ts...widgets ){
+	    std::vector<BaseWidget*> vec1{
+	      static_cast<BaseWidget*>(new Ts{std::move(widgets)})...
+		};
+	  
+	    return WindowReturnContainer(
+		WindowSettings{.size=size},
+		std::vector<std::unique_ptr<BaseWidget>>(vec1.cbegin(),vec1.cend())
+	    );
+	  }
+	};
+      }//detail
+      
+      template <class ...Arg_ts>
+      WindowReturnContainer make_window_return_container( Arg_ts... args){
+       
+	return detail::WindowReturnContainerMaker<Arg_ts...>::make( std::move(args)...);
+      };
+      
+      template<class subscriptions_t, class listened_for_t>
+      struct  Window:public BaseWidget{
+      private:
+	template<class ...F>
+	using to_function = Function<WindowReturnContainer, F...>;
+	template <class T>
+	using to_event_handler = EventHandler<AppEvent, T>;
 
-      using filters_tuple_t = typename subscriptions_t
-	::template map<Filter>
-	::template apply<std::tuple>;
+	using filters_tuple_t = typename subscriptions_t
+	  ::template map<Filter>
+	  ::template apply<std::tuple>;
      
-      using function_t = typename subscriptions_t
+	using function_t = typename subscriptions_t
 	::template apply<to_function> ;   
      
       using listener_tuple_t = typename listened_for_t
@@ -583,18 +699,18 @@ namespace fluxpp{
       function_t render_function_;
       listener_tuple_t listeners_;
     };
-
+      
     
-    struct WindowBuilder{
+      struct WindowBuilder{
     private:
       template<class ...F>
-      using to_fn_ptr = WindowReturnContainerBase*(*)(F... );
+      using to_fn_ptr = WindowReturnContainer(*)(F... );
      
       template<class ...F>
-      using to_closure_maker = ClosureMaker<WindowReturnContainerBase*, F...>;
+      using to_closure_maker = ClosureMaker<WindowReturnContainer, F...>;
      
       template<class ...F>
-      using to_function = Function<WindowReturnContainerBase*, F...>;
+      using to_function = Function<WindowReturnContainer, F...>;
      
       template <class T>
       using to_event_handler = EventHandler<AppEvent,T>;
@@ -721,16 +837,14 @@ namespace fluxpp{
   // application
   namespace widgets{
     namespace application{
-      class ApplicationReturnContainerBase{};
       
-      template<class ...widget_ts>
-      class ApplicationReturnContainer : public ApplicationReturnContainerBase{
-	using widgets_tuple_t = std::tuple<widget_ts...> ;
+      class ApplicationReturnContainer {
+	using widgets_vector_t = std::vector<std::unique_ptr<BaseWidget>> ;
       public:
 	ApplicationReturnContainer( widgets_tuple_t widgets)
-	  : widgets_(widgets) {};
+	  : widgets_(std::move(widgets)) {};
       private:
-	widgets_tuple_t widgets_;
+	widgets_vector_t widgets_;
       };
       
       template <class ...Arg_ts>
