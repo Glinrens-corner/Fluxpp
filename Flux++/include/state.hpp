@@ -4,7 +4,7 @@
 #include <vector>
 #include <set>
 #include <mem_comparable_closure.hpp>
-#include "widget.hpp"
+#include "app_event.hpp"
 
 
 namespace fluxpp{

@@ -26,14 +26,11 @@ namespace fluxpp{
     };
   };// widgets
 
-  // BaseWidget
+  // BaseSettings
   namespace widgets{
-    class BaseWidget {
-    public:
-      virtual std::vector<const std::string*> get_subscriptions()const=0;
-      virtual void accept(RenderVisitor& visitor )=0;
-    };
-  }// widgets
+    struct BaseSettings{};
+  } // widgets
+
   
   // LocatedWidget
   namespace widgets{
@@ -132,7 +129,7 @@ namespace fluxpp{
 
   // WidgetContainer
   namespace widgets{
-    struct WidgetData{
+    struct WidgetData: public BaseSettings{
     public:
       WidgetData(Size size, std::vector<Coordinate> positions)
 	:size(size)
@@ -154,6 +151,7 @@ namespace fluxpp{
 	: data_(data),
 	  widgets_(std::move(widgets)) {};
       
+      WidgetData extract_data(){return std::move(this->data_); }; 
     private:
       WidgetData data_ ;
       widgets_vector_t widgets_;
@@ -420,7 +418,7 @@ namespace fluxpp{
   namespace widgets{
     namespace screen {
       
-      struct ScreenSettings{};
+      struct ScreenSettings:public  BaseSettings{};
       
 
       class ScreenReturnContainer{
@@ -640,7 +638,7 @@ namespace fluxpp{
   namespace widgets{
 
     namespace window {
-      struct WindowSettings{
+      struct WindowSettings: public BaseSettings{
 	Size size;
       };
 
@@ -863,7 +861,7 @@ namespace fluxpp{
   namespace widgets{
     namespace application{
 
-      struct ApplicationSettings{
+      struct ApplicationSettings: public BaseSettings{
 
       };
       

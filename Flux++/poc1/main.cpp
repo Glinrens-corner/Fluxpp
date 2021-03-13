@@ -69,7 +69,7 @@ int main() {
   using namespace fluxpp;
   using widgets::AppEvent;
   auto backend = XCBBackend::create() ;
-  Ui mygui{&backend, myapp};
+  Ui mygui= Ui::create(&backend, myapp);
   mygui.add_state_slice("state/button", state::StateSlice<bool>(true,
 								[](bool state, const AppEvent& event  ){
 								  return std::make_pair( not state , std::vector<AppEvent>{});

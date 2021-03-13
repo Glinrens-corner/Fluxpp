@@ -1,11 +1,15 @@
 #ifndef FLUXPP_RENDER_TREE_HPP
 #define FLUXPP_RENDER_TREE_HPP
+#import <queue>
+#import "widget.hpp"
+
 namespace fluxpp{
   class WidgetNode;
   
   class RenderTree{
   public:
     RenderTree(
+	
 	std::unique_ptr<widgets::BaseWidget>&&,
 	std::queue<AppEvent>*,
 	backend::BaseBackend*,
