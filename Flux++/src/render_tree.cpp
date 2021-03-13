@@ -187,5 +187,5 @@ namespace fluxpp {
       delete this->impl;
     };
   }
-
-}
+  
+} // fluxpp

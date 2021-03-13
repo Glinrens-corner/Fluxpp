@@ -1,7 +1,7 @@
 #ifndef FLUXPP_RENDER_TREE_HPP
 #define FLUXPP_RENDER_TREE_HPP
 namespace fluxpp{
-  //  class WidgetNode;
+  class WidgetNode;
   
   class RenderTree{
   public:
