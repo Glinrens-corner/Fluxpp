@@ -422,7 +422,7 @@ namespace fluxpp{
       
 
       class ScreenReturnContainer{
-	using widgets_vector_t = std::vector<std::unique_ptr<BaseWidget>> ;
+	using widgets_vector_t = std::vector<std::unique_ptr<window::WindowBase>> ;
       public:
 	ScreenReturnContainer(ScreenSettings settings , widgets_vector_t widgets):settings_(settings)
 										 ,widgets_(std::move(widgets)) {};
@@ -441,13 +441,13 @@ namespace fluxpp{
       struct ScreenReturnContainerMaker<ScreenSettings,Ts...>{
 	static ScreenReturnContainer make(
 	    ScreenSettings settings, Ts...windows){
-	  std::vector<BaseWidget*> vec1{
-	    static_cast<BaseWidget*>(new Ts{std::move(windows)})...
+	  std::vector<window::WindowBase*> vec1{
+	    static_cast<window::WindowBase*>(new Ts{std::move(windows)})...
 	      };
 	  
 	  return ScreenReturnContainer(
 	      settings
-	      ,std::vector<std::unique_ptr<BaseWidget>>(vec1.cbegin(),vec1.cend())
+	      ,std::vector<std::unique_ptr<window::WindowBase>>(vec1.cbegin(),vec1.cend())
 	  );
 	}
       };
@@ -464,7 +464,7 @@ namespace fluxpp{
 
       
     template<class subscriptions_t, class listened_for_t>
-    struct  Screen:public BaseWidget{
+    struct  Screen:public ScreenBase{
     private:
       template<class ...F>
       using to_function = Function<ScreenReturnContainer, F...>;
@@ -683,7 +683,7 @@ namespace fluxpp{
       };
       
       template<class subscriptions_t, class listened_for_t>
-      struct  Window:public BaseWidget{
+      struct  Window:public WindowBase{
       private:
 	template<class ...F>
 	using to_function = Function<WindowReturnContainer, F...>;
@@ -866,7 +866,7 @@ namespace fluxpp{
       };
       
       class ApplicationReturnContainer {
-	using widgets_vector_t = std::vector<std::unique_ptr<BaseWidget>> ;
+	using widgets_vector_t = std::vector<std::unique_ptr<screen::ScreenBase>> ;
       public:
 	ApplicationReturnContainer( ApplicationSettings ,widgets_vector_t widgets)
 	  : widgets_(std::move(widgets)) {};
@@ -882,14 +882,14 @@ namespace fluxpp{
       
       template<class ...window_ts>
       struct ApplicationReturnContainerMaker<ApplicationSettings, window_ts... >{
-	static ApplicationReturnContainer make( window_ts...windows ){
+	static ApplicationReturnContainer make( window_ts...screens ){
 	  
-	  std::vector<BaseWidget*> vec1{
-	    static_cast<BaseWidget*>(new window_ts(windows))...
+	  std::vector<screen::ScreenBase*> vec1{
+	    static_cast<screen::ScreenBase*>(new window_ts(std::move(screens)))...
 	      };
 	  
 	  return ApplicationReturnContainer(
-	      ApplicationSettings{},std::vector<std::unique_ptr<BaseWidget>>(vec1.cbegin(),vec1.cend())
+	      ApplicationSettings{},std::vector<std::unique_ptr<screen::ScreenBase>>(vec1.cbegin(),vec1.cend())
 	  );
 	}
       };
@@ -903,8 +903,10 @@ namespace fluxpp{
     }// application
     
     namespace application{
+      
+      
       template<class subscriptions_t, class listened_for_t>
-      struct  Application:public BaseWidget{
+      struct  Application:public ApplicationBase{
       private:
 	template<class ...F>
 	using to_function = Function<ApplicationReturnContainer, F...>;

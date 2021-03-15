@@ -25,7 +25,7 @@ namespace fluxpp{
       class TextWidget;
     }
   }
-    // BaseWidget
+  // BaseWidget
   namespace widgets{
     class BaseWidget {
     public:
@@ -33,6 +33,45 @@ namespace fluxpp{
       virtual void accept(visitors::RenderVisitor& visitor )=0;
     };
   }// widgets
+  
+  namespace widgets{
+    namespace application{
+      class ApplicationBase {
+      public:
+	virtual std::vector<const std::string*> get_subscriptions()const=0;
+	virtual void accept(visitors::RenderVisitor& visitor )=0;
+      };
+    }// application
+  }// widgets
 
+
+  namespace widgets{
+    namespace window{
+      class WindowBase {
+      public:
+	virtual std::vector<const std::string*> get_subscriptions()const=0;
+	virtual void accept(visitors::RenderVisitor& visitor )=0;
+      };
+    }// application
+  }// widgets
+
+  namespace widgets{
+    enum class WidgetSuperclass{
+      application,
+      screen,
+      window,
+      widget
+    };
+      
+    namespace screen{
+      class ScreenBase {
+      public:
+	virtual std::vector<const std::string*> get_subscriptions()const=0;
+	virtual void accept(visitors::RenderVisitor& visitor )=0;
+      };
+    }// screen
+  }// widgets
+
+  
 }
 #endif // FLUXPP_WIDGET_FWD_HPP

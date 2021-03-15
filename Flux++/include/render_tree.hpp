@@ -4,13 +4,12 @@
 #import "widget.hpp"
 
 namespace fluxpp{
-  class WidgetNode;
+  //   class WidgetNode;
   
   class RenderTree{
   public:
     RenderTree(
-	
-	std::unique_ptr<widgets::BaseWidget>&&,
+	std::unique_ptr<widgets::application::ApplicationBase>,
 	std::queue<AppEvent>*,
 	backend::BaseBackend*,
 	state::State*);

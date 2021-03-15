@@ -77,7 +77,7 @@ namespace fluxpp{
 	
       };
       
-      void visit();
+      void visit_application();
     private:
       uuid_t visiting ;
       RenderIFCHolder * render_ifcs;
