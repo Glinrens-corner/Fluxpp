@@ -53,7 +53,6 @@ namespace fluxpp{
     template<class return_t>
     struct Filter {
       Filter( std::string target_):target(std::move(target_)){ };
-      
       std::string target;
     };
   }// widgets
@@ -82,11 +81,13 @@ namespace fluxpp{
 	app_event_t,
 	gui_event_t,
 	Function<AppEventContainer,gui_event_t> >{
+	
 	static constexpr decltype(auto) convert(
 	    Function<AppEventContainer,gui_event_t>&& fn
 	) {
 	  return fn;
 	};
+	
       };
     }//detail
     
@@ -219,9 +220,14 @@ namespace fluxpp{
 	this->get_subscription<0>(this->filters_,vec);
 	return vec;
       };
-      
-      void accept(RenderVisitor& visitor ){
-      	visitor.render_widget(this->filters_, this->render_function_ );
+      uuid_t accept(visitors::RenderVisitor& visitor,
+		    std::unique_ptr<BaseWidget> widget,
+		    uuid_t parent_uuid ){
+	return visitor.render_widget(
+	    std::move(widget),
+	    this->filters_,
+	     this->render_function_,
+	    parent_uuid );
       };
       
     private:
@@ -384,9 +390,10 @@ namespace fluxpp{
 	std::vector<const std::string*> get_subscriptions()const{
 	  return {};
 	};
-
-	void accept(RenderVisitor& visitor){
-	  visitor.render_widget(*this );
+	uuid_t accept(visitors::RenderVisitor& visitor,
+		      std::unique_ptr<BaseWidget> widget,
+		      uuid_t parent_uuid ){
+	  visitor.render_widget(*this , std::move(widget), parent_uuid);
 	};
 	
 	LocatedWidget<ColorWidget> at(int16_t x, int16_t y) {
@@ -401,8 +408,10 @@ namespace fluxpp{
 	  return {};
 	}
 	
-	void accept(RenderVisitor& visitor){
-	  visitor.render_widget(*this );
+	uuid_t accept(visitors::RenderVisitor& visitor,
+		      std::unique_ptr<BaseWidget> widget,
+		      uuid_t parent_uuid ){
+	  visitor.render_widget(*this , std::move(widget), parent_uuid);
 	};
 
 	TextWidget(std::string text):text_(std::move(text)){}
@@ -426,6 +435,14 @@ namespace fluxpp{
       public:
 	ScreenReturnContainer(ScreenSettings settings , widgets_vector_t widgets):settings_(settings)
 										 ,widgets_(std::move(widgets)) {};
+	ScreenSettings extract_data(){return std::move(this->settings_);};
+
+	const widgets_vector_t& widgets()const{return this->widgets_;};
+
+	widgets_vector_t extract_windows(){
+	  widgets_vector_t empty {};
+	  std::swap(this->widgets_, empty);
+	  return empty ;};
       private:
 	widgets_vector_t widgets_;
 	ScreenSettings settings_ ;
@@ -494,8 +511,14 @@ namespace fluxpp{
 	return {};
       };
       
-      void accept(RenderVisitor& visitor ){
-      	visitor.render_widget(this->filters_, this->render_function_ );
+      uuid_t accept(RenderVisitor& visitor,
+		    std::unique_ptr<ScreenBase> screen,
+		    uuid_t parent_uuid ){
+        return visitor.render_widget(
+	    std::move(screen),
+	    this->filters_,
+	    this->render_function_,
+	    parent_uuid );
       };
 
 
@@ -648,6 +671,13 @@ namespace fluxpp{
       WindowReturnContainer(WindowSettings settings , widgets_vector_t widgets)
 	: settings_(settings),
 	  widgets_(std::move(widgets)) {};
+	WindowSettings extract_data(){return std::move(this->settings_);};
+	widgets_vector_t& widgets(){return this->widgets_;};
+	widgets_vector_t extract_widgets(){
+	  widgets_vector_t empty{};
+	  std::swap(this->widgets_,empty);
+	  return empty;
+	};
     private:
       widgets_vector_t widgets_;
       WindowSettings settings_ ;
@@ -712,8 +742,14 @@ namespace fluxpp{
 	  return {};
 	}
 	
-	void accept(RenderVisitor& visitor ){
-	  visitor.render_widget(this->filters_, this->render_function_ );
+	uuid_t accept(RenderVisitor& visitor,
+		      std::unique_ptr<WindowBase> window,
+		      uuid_t parent_uuid ){
+	  return visitor.render_widget(
+	      std::move(window),
+	      this->filters_,
+	      this->render_function_,
+	      parent_uuid );
 	};
 
     private:
@@ -870,6 +906,15 @@ namespace fluxpp{
       public:
 	ApplicationReturnContainer( ApplicationSettings ,widgets_vector_t widgets)
 	  : widgets_(std::move(widgets)) {};
+	const widgets_vector_t& widgets()const{ return this->widgets_;};
+        widgets_vector_t extract_widgets(){
+	  widgets_vector_t empty{};
+	  std::swap(this->widgets_, empty);
+	  return empty;
+	};
+	ApplicationSettings extract_data(){
+	  return ApplicationSettings{};
+	};
       private:
 	widgets_vector_t widgets_;
       };
@@ -877,9 +922,9 @@ namespace fluxpp{
  
       namespace detail{
       
-      template<class ...Arg_ts>
-      struct ApplicationReturnContainerMaker;
-      
+	template<class ...Arg_ts>
+	struct ApplicationReturnContainerMaker;
+	
       template<class ...window_ts>
       struct ApplicationReturnContainerMaker<ApplicationSettings, window_ts... >{
 	static ApplicationReturnContainer make( window_ts...screens ){

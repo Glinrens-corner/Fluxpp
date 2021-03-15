@@ -44,6 +44,7 @@ namespace fluxpp {
       return this->widget_tree.at(uuid);
     };
     
+    
     template<class widget_node_t>
     uuid_t insert(widget_node_t new_widget){
       uuid_t uuid = this->gen_();
@@ -55,6 +56,9 @@ namespace fluxpp {
 	  
       };
       return uuid ;
+    };
+    ApplicationNode& root(){
+      return this->application.begin()->second;
     };
 
   private:
@@ -100,8 +104,6 @@ namespace fluxpp {
     RenderTreeData tree_;
   };
 
-  
-
   namespace visitors{
     struct RenderIFCHolder{
       state::SynchronousStateInterface* state_sifc;
@@ -111,35 +113,104 @@ namespace fluxpp {
       std::vector<backend::DrawCommandBase>* commands;
     };
 
-    void RenderVisitor::visit_application() {
-      this->render_ifcs->old_tree->application_at(this->visiting).accept(*this);
+    void RenderVisitor::visit(widgets::application::ApplicationBase* application ) {
+      application->accept(*this);
     };
     
-    void  RenderVisitor::process_container(WidgetReturnContainer&& container ){
+    uuid_t RenderVisitor::visit( std::unique_ptr<widgets::screen::ScreenBase> screen, uuid_t parent_uuid){
+      auto screen_ptr = screen.get();
+      return screen_ptr->accept(*this, std::move(screen),  parent_uuid);
+    };
+
+    uuid_t RenderVisitor::visit( std::unique_ptr<widgets::window::WindowBase> window, uuid_t parent_uuid){
+      auto window_ptr = window.get();
+      return window_ptr->accept(*this, std::move(window),  parent_uuid);
+    };
+    
+    uuid_t RenderVisitor::visit( std::unique_ptr<widgets::BaseWidget> widget, uuid_t parent_uuid){
+      auto widget_ptr = widget.get();
+      return widget_ptr->accept(*this, std::move(widget),  parent_uuid);
+    };
+    
+    void  RenderVisitor::process_container(WidgetReturnContainer container , uuid_t parent_uuid){
       auto widget_data = container.extract_data();
+      
       std::vector<events::Coordinate> next_positions = widget_data.positions;
-      /*uuid_t new_uuid =  
-	this
-	->add_node(
-	WidgetNode(
-	parent_=this->current_render_id,
-	std::unique_ptr<BaseSettings>(
-	new wigets::WidgetData(std::move(widget_data)))
-	)
-	);
-	this->update_child(this->current_render_id,new_uuid);*/
       return;
     };
 
+    uuid_t  RenderVisitor::process_container(
+        ScreenReturnContainer container ,
+	std::unique_ptr<widgets::screen::ScreenBase> screen,
+	uuid_t parent_uuid){
+      auto screen_settings = container.extract_data();
+      auto screen_ptr = screen.get();
+      auto screen_uuid =this->render_ifcs->new_tree->
+	insert(
+	    ScreenNode(
+		parent_uuid,
+		std::move(screen),
+		screen_settings)
+	);
+      
+      // TODO generate command
+      std::vector<uuid_t> children{};
+      children.reserve(container.widgets().size() );
+      for(std::unique_ptr<widgets::window::WindowBase>&  window :
+	    container.extract_windows( )){
+	children.push_back(this->visit(std::move(window) ,screen_uuid));
+      };
+      return screen_uuid;
+    };
+
+
+    uuid_t  RenderVisitor::process_container(
+        WindowReturnContainer container ,
+	std::unique_ptr<widgets::window::WindowBase> window,
+	uuid_t parent_uuid){
+      auto window_settings = container.extract_data();
+      auto window_ptr = window.get();
+      auto window_uuid =this->render_ifcs->new_tree->
+	insert(
+	    WindowNode(
+		parent_uuid,
+		std::move(window),
+	        window_settings)
+	);
+      
+      // TODO generate command
+      std::vector<uuid_t> children{};
+      children.reserve(container.widgets().size() );
+      for(std::unique_ptr<widgets::BaseWidget>&  widget :
+	    container.extract_widgets( )){
+	children.push_back(this->visit(std::move(widget),window_uuid));
+      };
+      return window_uuid;
+    };
+    
+    
+    void  RenderVisitor::process_container(
+	ApplicationReturnContainer container){
+      widgets::application::ApplicationSettings application_data = container.extract_data();
+      uuid_t app_uuid = this->render_ifcs->new_tree->
+	insert(
+	    ApplicationNode(
+	        this->render_ifcs->old_tree->root().extract_widget(),
+		std::move(application_data)
+	    )
+	);
+      std::vector<uuid_t> children{};
+      // TODO generate command
+      children.reserve(container.widgets().size() );
+      for (std::unique_ptr<widgets::screen::ScreenBase>&  screen : container.extract_widgets()  ){
+	children.push_back(RenderVisitor(this->render_ifcs,uuid_t{}).visit(std::move(screen),app_uuid ));
+      };
+      return;
+    };
+
+    
 
   } // visitors
-
-
-  
-
-
-
-  
 
   void RenderTree::RenderTreeImpl::prepare_render(bool rerender_all){
     auto state_ifc = this->state_->get_synchronous_interface();
@@ -158,7 +229,7 @@ namespace fluxpp {
       .old_tree = &this->tree_,
       .new_tree=&new_tree,
       .commands=&commands };
-    // visitors::RenderVisitor(&render_ifcs, this->tree_.root()).visit_application();
+    visitors::RenderVisitor(&render_ifcs, uuid_t{}).visit(&(this->tree_.root().widget()));
       
   };
 
@@ -181,18 +252,6 @@ namespace fluxpp {
     this->impl->prepare_render(rerender_all);
   };
   
-  void WidgetNode::accept(visitors::RenderVisitor& visitor){
-    return this->widget_->accept( visitor);
-  };
-  void ApplicationNode::accept(visitors::RenderVisitor& visitor){
-    return this->widget_->accept( visitor);
-  };
-  void WindowNode::accept(visitors::RenderVisitor& visitor){
-    return this->widget_->accept( visitor);
-  };
-  void ScreenNode::accept(visitors::RenderVisitor& visitor){
-    return this->widget_->accept( visitor);
-  };
   RenderTree::~RenderTree(){
     if (this->impl){
       delete this->impl;

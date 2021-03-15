@@ -23,7 +23,6 @@ namespace fluxpp{
       return this->widget_->get_subscriptions();
     };
 
-    void accept(visitors::RenderVisitor& visitor );
      
     const std::vector<uuid_t>& children()const {return this->children_;};
     
@@ -36,8 +35,9 @@ namespace fluxpp{
       };
       return false;
     };
-    
-    
+
+    std::unique_ptr<base_t> extract_widget(){return std::move(this->widget_);};
+    base_t & widget(){return *this->widget_;};
   private:
     settings_t settings_;
     std::unique_ptr<base_t> widget_;
@@ -60,7 +60,6 @@ namespace fluxpp{
       return this->widget_->get_subscriptions();
     };
 
-    void accept(visitors::RenderVisitor& visitor );
      
     const std::vector<uuid_t>& children()const {return this->children_;};
     
@@ -101,7 +100,6 @@ namespace fluxpp{
       return this->widget_->get_subscriptions();
     };
 
-    void accept(visitors::RenderVisitor& visitor );
      
     const std::vector<uuid_t>& children()const {return this->children_;};
     
@@ -128,11 +126,6 @@ namespace fluxpp{
 
   class WidgetNode{
   public:
-    WidgetNode(std::unique_ptr<widgets::BaseWidget>&& widget,
-	       std::unique_ptr<widgets::BaseSettings>&& settings)
-      :widget_(std::move(widget))
-      ,settings_(std::move(settings)){};
-
     WidgetNode(uuid_t parent_uuid,
 	       std::unique_ptr<widgets::BaseWidget>&& widget,
 	       std::unique_ptr<widgets::BaseSettings>&& settings)
@@ -144,8 +137,6 @@ namespace fluxpp{
       return this->widget_->get_subscriptions();
     };
 
-    void accept(visitors::RenderVisitor& visitor );
-     
     const std::vector<uuid_t>& children()const {return this->children_;};
     
     bool update_child(uuid_t old, uuid_t updated ){
