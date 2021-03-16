@@ -25,7 +25,10 @@ namespace fluxpp{
 
      
     const std::vector<uuid_t>& children()const {return this->children_;};
-    
+    void children(std::vector<uuid_t> new_children ) {
+      this->children_= new_children;
+    };
+
     bool update_child(uuid_t old, uuid_t updated ){
       for ( auto& child : this->children_){
 	if (child == old){
@@ -62,7 +65,10 @@ namespace fluxpp{
 
      
     const std::vector<uuid_t>& children()const {return this->children_;};
-    
+    void children(std::vector<uuid_t> new_children ) {
+      this->children_= new_children;
+    };
+
     bool update_child(uuid_t old, uuid_t updated ){
       for ( auto& child : this->children_){
 	if (child == old){
@@ -102,6 +108,9 @@ namespace fluxpp{
 
      
     const std::vector<uuid_t>& children()const {return this->children_;};
+    void children(std::vector<uuid_t> new_children ) {
+      this->children_= new_children;
+    };
     
     bool update_child(uuid_t old, uuid_t updated ){
       for ( auto& child : this->children_){
@@ -127,8 +136,8 @@ namespace fluxpp{
   class WidgetNode{
   public:
     WidgetNode(uuid_t parent_uuid,
-	       std::unique_ptr<widgets::BaseWidget>&& widget,
-	       std::unique_ptr<widgets::BaseSettings>&& settings)
+	       std::unique_ptr<widgets::BaseWidget> widget,
+	       widgets::WidgetData settings)
       :widget_(std::move(widget))
       ,settings_(std::move(settings))
       ,parent_(parent_uuid){};
@@ -154,7 +163,7 @@ namespace fluxpp{
     void parent(uuid_t new_parent){this->parent_ =new_parent;};
     
   private:
-    std::unique_ptr<widgets::BaseSettings> settings_;
+    widgets::WidgetData settings_;
     std::unique_ptr<widgets::BaseWidget> widget_;
     std::vector<uuid_t> children_{} ;
     uuid_t parent_{};

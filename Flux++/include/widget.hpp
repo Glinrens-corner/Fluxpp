@@ -152,7 +152,13 @@ namespace fluxpp{
 	: data_(data),
 	  widgets_(std::move(widgets)) {};
       
-      WidgetData extract_data(){return std::move(this->data_); }; 
+      WidgetData extract_data(){return std::move(this->data_); };
+      const widgets_vector_t& widgets()const{return this->widgets_;};
+      widgets_vector_t extract_widgets(){
+	widgets_vector_t ret{};
+	std::swap(ret,this->widgets_ );
+	return ret;
+      };
     private:
       WidgetData data_ ;
       widgets_vector_t widgets_;
@@ -393,8 +399,11 @@ namespace fluxpp{
 	uuid_t accept(visitors::RenderVisitor& visitor,
 		      std::unique_ptr<BaseWidget> widget,
 		      uuid_t parent_uuid ){
-	  visitor.render_widget(*this , std::move(widget), parent_uuid);
+	  return visitor.render_widget(*this , std::move(widget), parent_uuid);
 	};
+
+	WidgetData extract_data(){return WidgetData( Size{}, std::vector<Coordinate>{} ) ;};
+
 	
 	LocatedWidget<ColorWidget> at(int16_t x, int16_t y) {
 	  return LocatedWidget<ColorWidget>(*this, Coordinate{x,y}); };
@@ -411,9 +420,10 @@ namespace fluxpp{
 	uuid_t accept(visitors::RenderVisitor& visitor,
 		      std::unique_ptr<BaseWidget> widget,
 		      uuid_t parent_uuid ){
-	  visitor.render_widget(*this , std::move(widget), parent_uuid);
+	  return visitor.render_widget(*this , std::move(widget), parent_uuid);
 	};
-
+	WidgetData extract_data(){return WidgetData( Size{}, std::vector<Coordinate>{} ) ;};
+	
 	TextWidget(std::string text):text_(std::move(text)){}
 	
 	LocatedWidget<TextWidget> at(int16_t x, int16_t y) {

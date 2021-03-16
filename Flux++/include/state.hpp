@@ -3,6 +3,8 @@
 #include <tuple>
 #include <vector>
 #include <set>
+#include <typeinfo>
+#include <typeindex>
 #include <mem_comparable_closure.hpp>
 #include "app_event.hpp"
 
@@ -12,11 +14,15 @@ namespace fluxpp{
   using mem_comparable_closure::ClosureMaker;
   using widgets::AppEvent;
   namespace state{
-
+    template <class T>
+    class  StateSlice ;
+    
+    
     class BaseStateSlice{
     public:
       virtual std::pair<bool, std::vector<AppEvent>> dispatch_event(const AppEvent& event) = 0;
-      virtual ~BaseStateSlice()=default;
+      virtual void extract(void*, std::type_index) = 0;
+      virtual ~BaseStateSlice()=default; 
     };
     
     
@@ -37,6 +43,14 @@ namespace fluxpp{
 	this->state_ = std::move(new_state);
 	return std::make_pair(true, vec);
       };
+      
+      void extract(void * obj, std::type_index type_idx ){
+        if (type_idx == std::type_index(typeid(T) )){
+	  new(obj) T{ this->state_};
+	};
+	return;
+      };
+      
       ~StateSlice()=default;
     public:
       reducer_t reducer_;
@@ -59,6 +73,8 @@ namespace fluxpp{
 	return *this;
       };
 
+      void get_state_slice_state(std::string slice, void* arg, std::type_index type_idx );
+
       std::set<std::string> get_updated_slices();
       
       ~SynchronousStateInterface();
@@ -80,7 +96,7 @@ namespace fluxpp{
 	return SynchronousStateInterface{this->impl};
       };
       
-      void add_slice(const std::string&,
+      void add_slice(std::string,
 		     std::unique_ptr<BaseStateSlice>&& slice);
       void  dispatch_event( AppEvent  event);
     private:

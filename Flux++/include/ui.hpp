@@ -21,7 +21,8 @@ namespace fluxpp{
       ,queue_system_(std::move(queue_system))
       ,state_(std::move(state))
       ,render_tree_(std::move(render_tree))
-      {};
+      {
+      };
   public:
     
     template<class ...Ts>
@@ -58,7 +59,9 @@ namespace fluxpp{
 	  )
 	);
     };
-    
+    void start(){
+      this->render_tree_->prepare_render(false);
+    };
   private:
     std::unique_ptr<std::queue<AppEvent>> queue_system_;
     std::unique_ptr<state::State> state_;

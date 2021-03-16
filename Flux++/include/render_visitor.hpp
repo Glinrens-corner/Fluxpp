@@ -2,14 +2,15 @@
 #define FLUXPP_RENDER_VISITOR_HPP
 #include <mem_comparable_closure.hpp>
 #include <boost/uuid/uuid.hpp>
-
+#include <typeinfo>
+#include <typeindex>
 #include "backend/base_backend.hpp"
 #include "state.hpp"
 #include "widget_fwd.hpp"
 #include "render_tree.hpp"
 
 namespace fluxpp{
-
+  class RenderTreeData;
   namespace visitors{
     using mem_comparable_closure::Function;
     using  widgets::WidgetReturnContainer;
@@ -19,17 +20,32 @@ namespace fluxpp{
     using  widgets::application::ApplicationReturnContainer;
     using  widgets::window::WindowReturnContainer;
     using uuid_t = boost::uuids::uuid;
-    struct RenderIFCHolder;
+
+    struct RenderIFCHolder{
+      state::SynchronousStateInterface* state_sifc;
+      backend::AsynchronousBackendInterfaceBase * backend_aifc;
+      RenderTreeData * old_tree;
+      RenderTreeData * new_tree;
+      std::vector<backend::DrawCommandBase>* commands;
+    };
     
     class RenderVisitor{
 
     private:
       template<class Arg_t >
       Arg_t get_state_slice_state(Filter<Arg_t> filter ){
-	return Arg_t{};
+	Arg_t arg{ };
+	this->render_ifcs->state_sifc->get_state_slice_state(
+	    filter.target,
+	    reinterpret_cast<void*>(&arg),
+	    std::type_index(typeid(Arg_t))
+	);
+	return arg;
       };
 
-      void process_container(WidgetReturnContainer, uuid_t );
+      uuid_t process_container(WidgetReturnContainer,
+			       std::unique_ptr<widgets::BaseWidget> widget,
+			       uuid_t );
       
       void process_container(widgets::application::ApplicationReturnContainer);
       uuid_t process_container(
@@ -57,8 +73,8 @@ namespace fluxpp{
 	  
 	  const Function<WidgetReturnContainer, Arg_ts...>& render_fn,
 	  uuid_t parent_uuid){
-	std::apply([this,render_fn , parent_uuid](Filter<Arg_ts>... filters){
-	    return this->process_container(render_fn(this->get_state_slice_state(filters)...), parent_uuid);}, filter_tuple);
+	std::apply([this,render_fn, &base , parent_uuid](Filter<Arg_ts>... filters){
+	    return this->process_container(render_fn(this->get_state_slice_state(filters)...),std::move(base) , parent_uuid);}, filter_tuple);
 	return uuid_t{};
       };
 
@@ -107,18 +123,14 @@ namespace fluxpp{
       
       
       uuid_t render_widget(
-	  const ColorWidget& widget,
+	  ColorWidget& widget,
 	  std::unique_ptr<widgets::BaseWidget> base,
-	  uuid_t parent_uuid){
-	return uuid_t{};
-      };
+	  uuid_t parent_uuid);
       
       uuid_t render_widget(
-	  const TextWidget& widget,
+	  TextWidget& widget,
 	  std::unique_ptr<widgets::BaseWidget> base,
-	  uuid_t parent_uuid){
-	return uuid_t{};
-      };
+	  uuid_t parent_uuid);
       
       void visit( widgets::application::ApplicationBase *);
 

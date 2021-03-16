@@ -8,11 +8,6 @@
 #include "widget_node.hpp"
 
 namespace fluxpp {
-
-
-  //TODO it is probably better to specialize WidgetNode for mulitple widget classes
-  //    (per specific SettingsClass)
-
   
   class RenderTreeData{
   public:
@@ -43,8 +38,7 @@ namespace fluxpp {
     WidgetNode& widget_at(uuid_t uuid){
       return this->widget_tree.at(uuid);
     };
-    
-    
+
     template<class widget_node_t>
     uuid_t insert(widget_node_t new_widget){
       uuid_t uuid = this->gen_();
@@ -105,13 +99,6 @@ namespace fluxpp {
   };
 
   namespace visitors{
-    struct RenderIFCHolder{
-      state::SynchronousStateInterface* state_sifc;
-      backend::AsynchronousBackendInterfaceBase * backend_aifc;
-      RenderTreeData * old_tree;
-      RenderTreeData * new_tree;
-      std::vector<backend::DrawCommandBase>* commands;
-    };
 
     void RenderVisitor::visit(widgets::application::ApplicationBase* application ) {
       application->accept(*this);
@@ -127,16 +114,62 @@ namespace fluxpp {
       return window_ptr->accept(*this, std::move(window),  parent_uuid);
     };
     
-    uuid_t RenderVisitor::visit( std::unique_ptr<widgets::BaseWidget> widget, uuid_t parent_uuid){
+    uuid_t RenderVisitor::visit(
+	std::unique_ptr<widgets::BaseWidget> widget,
+	uuid_t parent_uuid){
       auto widget_ptr = widget.get();
       return widget_ptr->accept(*this, std::move(widget),  parent_uuid);
     };
+
+    uuid_t RenderVisitor::render_widget(
+	TextWidget& widget,
+	std::unique_ptr<widgets::BaseWidget> base,
+	uuid_t parent_uuid){
+      auto widget_uuid =this->render_ifcs->new_tree->
+	insert(
+	    WidgetNode(
+		parent_uuid,
+		std::move(base),
+	        widget.extract_data())
+	);
+      return widget_uuid;
+    };
     
-    void  RenderVisitor::process_container(WidgetReturnContainer container , uuid_t parent_uuid){
-      auto widget_data = container.extract_data();
+    uuid_t RenderVisitor::render_widget(
+	ColorWidget& widget,
+	std::unique_ptr<widgets::BaseWidget> base,
+	uuid_t parent_uuid){
       
-      std::vector<events::Coordinate> next_positions = widget_data.positions;
-      return;
+      auto widget_uuid =this->render_ifcs->new_tree->
+	insert(
+	    WidgetNode(
+		parent_uuid,
+		std::move(base),
+	        widget.extract_data())
+	);
+	return widget_uuid;
+      };
+    
+    uuid_t RenderVisitor::process_container(
+	WidgetReturnContainer container ,
+	std::unique_ptr<widgets::BaseWidget> widget,
+	uuid_t parent_uuid){
+      auto widget_data = container.extract_data();
+      auto widget_ptr = widget.get();
+      auto widget_uuid =this->render_ifcs->new_tree->
+	insert(
+	    WidgetNode(
+		parent_uuid,
+		std::move(widget),
+	        widget_data)
+	);
+      std::vector<uuid_t> children{};
+      children.reserve(container.widgets().size() );
+      for(std::unique_ptr<widgets::BaseWidget>&  child :
+	    container.extract_widgets( )){
+	children.push_back(this->visit(std::move(child) ,widget_uuid));
+      };
+      return widget_uuid;
     };
 
     uuid_t  RenderVisitor::process_container(
@@ -153,13 +186,13 @@ namespace fluxpp {
 		screen_settings)
 	);
       
-      // TODO generate command
       std::vector<uuid_t> children{};
       children.reserve(container.widgets().size() );
       for(std::unique_ptr<widgets::window::WindowBase>&  window :
 	    container.extract_windows( )){
 	children.push_back(this->visit(std::move(window) ,screen_uuid));
       };
+      this->render_ifcs->new_tree->screen_at(screen_uuid).children(std::move(children));
       return screen_uuid;
     };
 
@@ -178,13 +211,13 @@ namespace fluxpp {
 	        window_settings)
 	);
       
-      // TODO generate command
       std::vector<uuid_t> children{};
       children.reserve(container.widgets().size() );
       for(std::unique_ptr<widgets::BaseWidget>&  widget :
 	    container.extract_widgets( )){
 	children.push_back(this->visit(std::move(widget),window_uuid));
       };
+      this->render_ifcs->new_tree->window_at(window_uuid).children(std::move(children));
       return window_uuid;
     };
     
@@ -205,10 +238,9 @@ namespace fluxpp {
       for (std::unique_ptr<widgets::screen::ScreenBase>&  screen : container.extract_widgets()  ){
 	children.push_back(RenderVisitor(this->render_ifcs,uuid_t{}).visit(std::move(screen),app_uuid ));
       };
+      this->render_ifcs->new_tree->application_at(app_uuid).children(std::move(children));
       return;
     };
-
-    
 
   } // visitors
 
@@ -230,7 +262,8 @@ namespace fluxpp {
       .new_tree=&new_tree,
       .commands=&commands };
     visitors::RenderVisitor(&render_ifcs, uuid_t{}).visit(&(this->tree_.root().widget()));
-      
+    
+    std::swap(this->tree_, new_tree);
   };
 
   

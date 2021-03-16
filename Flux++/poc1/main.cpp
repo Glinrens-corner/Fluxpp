@@ -1,4 +1,5 @@
 #include <mem_comparable_closure.hpp>
+#include <iostream>
 #include "widget.hpp"
 #include "gui_event.hpp"
 #include "ui.hpp"
@@ -52,7 +53,8 @@ Widget<SubscribeTo<bool>,
 
 Window<SubscribeTo<>, ListenFor<>> mywindow =WindowBuilder{}
   .without_filters()
-  .with_render_lambda([]( ){ return make_window_return_container( Size{300,400},button); })
+  .with_render_lambda([]( ){
+      return make_window_return_container( Size{300,400},button); })
   .build_without_event_handlers();
 
 Screen<SubscribeTo<>, ListenFor<>> myscreen =ScreenBuilder{}
@@ -76,4 +78,5 @@ int main() {
 								}
 								)
 			);
+  mygui.start();
 };
