@@ -15,6 +15,7 @@ namespace fluxpp{
 	state::State*);
     RenderTree(const RenderTree &) = delete;
     void prepare_render(bool render_all);
+    
     ~RenderTree();
   private:
     class RenderTreeImpl;

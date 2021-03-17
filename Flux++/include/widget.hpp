@@ -8,6 +8,8 @@
 #include "gui_event.hpp"
 #include "app_event.hpp"
 #include "render_visitor.hpp"
+#include "command_visitor.hpp"
+#include "backend/base_backend.hpp"
 
 namespace fluxpp{
   //using declarations
@@ -16,6 +18,7 @@ namespace fluxpp{
     using visitors::RenderVisitor;
     using mem_comparable_closure::Function;
     using mem_comparable_closure::ClosureMaker;
+    using backend::DrawCommandBase;
     using std::tuple;
     using std::array;
     using events::Coordinate;
@@ -226,6 +229,14 @@ namespace fluxpp{
 	this->get_subscription<0>(this->filters_,vec);
 	return vec;
       };
+	std::unique_ptr<DrawCommandBase> accept(
+	    uuid_t parent_uuid,
+	    uuid_t widget_uuid,
+	    visitors::CommandVisitor& visitor)const{
+	  return visitor.transform(parent_uuid,widget_uuid, *this);
+	};
+					       
+      
       uuid_t accept(visitors::RenderVisitor& visitor,
 		    std::unique_ptr<BaseWidget> widget,
 		    uuid_t parent_uuid ){
@@ -396,6 +407,13 @@ namespace fluxpp{
 	std::vector<const std::string*> get_subscriptions()const{
 	  return {};
 	};
+	std::unique_ptr<DrawCommandBase> accept(
+	    uuid_t parent_uuid,
+	    uuid_t widget_uuid,
+	    visitors::CommandVisitor& visitor)const{
+	  return visitor.transform(parent_uuid,widget_uuid, *this);
+	};
+	
 	uuid_t accept(visitors::RenderVisitor& visitor,
 		      std::unique_ptr<BaseWidget> widget,
 		      uuid_t parent_uuid ){
@@ -416,7 +434,13 @@ namespace fluxpp{
 	std::vector<const std::string*> get_subscriptions()const{
 	  return {};
 	}
-	
+	std::unique_ptr<DrawCommandBase> accept(
+	    uuid_t parent_uuid,
+	    uuid_t widget_uuid,
+	    visitors::CommandVisitor& visitor)const{
+	  return visitor.transform(parent_uuid,widget_uuid, *this);
+	};
+
 	uuid_t accept(visitors::RenderVisitor& visitor,
 		      std::unique_ptr<BaseWidget> widget,
 		      uuid_t parent_uuid ){

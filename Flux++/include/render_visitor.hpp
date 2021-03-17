@@ -19,14 +19,13 @@ namespace fluxpp{
     using  widgets::screen::ScreenReturnContainer;
     using  widgets::application::ApplicationReturnContainer;
     using  widgets::window::WindowReturnContainer;
-    using uuid_t = boost::uuids::uuid;
 
     struct RenderIFCHolder{
       state::SynchronousStateInterface* state_sifc;
-      backend::AsynchronousBackendInterfaceBase * backend_aifc;
+      //      backend::AsynchronousBackendInterfaceBase * backend_aifc;
       RenderTreeData * old_tree;
       RenderTreeData * new_tree;
-      std::vector<backend::DrawCommandBase>* commands;
+      //      std::vector<backend::DrawCommandBase>* commands;
     };
     
     class RenderVisitor{
@@ -73,9 +72,9 @@ namespace fluxpp{
 	  
 	  const Function<WidgetReturnContainer, Arg_ts...>& render_fn,
 	  uuid_t parent_uuid){
-	std::apply([this,render_fn, &base , parent_uuid](Filter<Arg_ts>... filters){
+	return std::apply([this,render_fn, &base , parent_uuid](Filter<Arg_ts>... filters){
 	    return this->process_container(render_fn(this->get_state_slice_state(filters)...),std::move(base) , parent_uuid);}, filter_tuple);
-	return uuid_t{};
+	 ;
       };
 
       

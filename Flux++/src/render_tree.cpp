@@ -1,81 +1,59 @@
 #include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
 #include <map>
 #include <set>
 #include <vector>
 #include <limits>
+#include <iostream>
 #include "ui.hpp"
 #include "widget_node.hpp"
+#include "command_visitor.hpp"
+#include "render_data.hpp"
+
 
 namespace fluxpp {
+
+  RenderTreeData::RenderTreeData(std::unique_ptr<widgets::application::ApplicationBase> application){
+    this->insert(
+	ApplicationNode(
+	    std::move(application),
+	    widgets::application::ApplicationSettings{}
+	)
+    );
+  };
   
-  class RenderTreeData{
-  public:
-      
-    RenderTreeData(){};
-      
-    RenderTreeData(std::unique_ptr<widgets::application::ApplicationBase> application){
-      this->insert(
-	  ApplicationNode(
-	      std::move(application),
-	      widgets::application::ApplicationSettings{}
-	  )
-      );
-    };
-    
-    ApplicationNode& application_at(uuid_t uuid){
-      return this->application.at(uuid);
-    };
-    
-    ScreenNode& screen_at(uuid_t uuid){
+  ApplicationNode& RenderTreeData::application_at(uuid_t uuid){
+    return this->application.at(uuid);
+  };
+    ScreenNode& RenderTreeData::screen_at(uuid_t uuid){
       return this->screens.at(uuid);
     };
-    
-    WindowNode& window_at(uuid_t uuid){
+    const ScreenNode& RenderTreeData::screen_at(uuid_t uuid)const{
+      return this->screens.at(uuid);
+    };
+
+    WindowNode& RenderTreeData::window_at(uuid_t uuid){
+      return this->windows.at(uuid);
+    };
+    const WindowNode& RenderTreeData::window_at(uuid_t uuid)const{
       return this->windows.at(uuid);
     };
     
-    WidgetNode& widget_at(uuid_t uuid){
+    WidgetNode& RenderTreeData::widget_at(uuid_t uuid){
       return this->widget_tree.at(uuid);
     };
-
-    template<class widget_node_t>
-    uuid_t insert(widget_node_t new_widget){
-      uuid_t uuid = this->gen_();
-      auto [it,success ]=this->base_insert(uuid,std::move(new_widget));
-      if (!success) throw std::exception();
-      for (const std::string* subscription :it->second.get_subscriptions() ){
-	this->subscribed_to.try_emplace(*subscription);
-	this->subscribed_to[*subscription].insert(uuid);
-	  
-      };
-      return uuid ;
+    const WidgetNode& RenderTreeData::widget_at(uuid_t uuid)const{
+      return this->widget_tree.at(uuid);
     };
-    ApplicationNode& root(){
+    ApplicationNode& RenderTreeData::root(){
+      return this->application.begin()->second;
+    };
+    const ApplicationNode& RenderTreeData::root()const {
       return this->application.begin()->second;
     };
 
-  private:
-    decltype(auto) base_insert(uuid_t uuid, ApplicationNode application){
-      return this->application.insert({uuid,std::move(application)});
-    };
-    decltype(auto) base_insert(uuid_t uuid, ScreenNode screen){
-      return this->screens.insert({uuid,std::move(screen)});
-    };
-    decltype(auto) base_insert(uuid_t uuid, WindowNode window){
-      return this->windows.insert({uuid,std::move(window)});
-    };
-    decltype(auto) base_insert(uuid_t uuid, WidgetNode widget){
-      return this->widget_tree.insert({uuid,std::move(widget)});
-    };
-  private:
-    std::map<uuid_t, ApplicationNode> application{};
-    std::map<uuid_t, ScreenNode> screens{};
-    std::map<uuid_t, WindowNode> windows{};
-    std::map<uuid_t, WidgetNode> widget_tree{};
-    boost::uuids::random_generator gen_{};
-    std::map<std::string, std::set<uuid_t>> subscribed_to{};
-  };
+
+  
+
 
   class RenderTree::RenderTreeImpl{
   public:
@@ -91,6 +69,8 @@ namespace fluxpp {
     
     void prepare_render(bool rerender_all);
     
+    std::vector<std::unique_ptr<backend::DrawCommandBase>> generate_commands(const RenderTreeData&);
+
   private:
     std::queue<AppEvent>* app_queue_;
     backend::BaseBackend* backend_;
@@ -169,6 +149,7 @@ namespace fluxpp {
 	    container.extract_widgets( )){
 	children.push_back(this->visit(std::move(child) ,widget_uuid));
       };
+      this->render_ifcs->new_tree->widget_at(widget_uuid).children(std::move(children));
       return widget_uuid;
     };
 
@@ -247,26 +228,35 @@ namespace fluxpp {
   void RenderTree::RenderTreeImpl::prepare_render(bool rerender_all){
     auto state_ifc = this->state_->get_synchronous_interface();
       
-    auto command_creator = this->backend_->get_asynchronous_interface();
       
 
     std::set<uuid_t> rerender_widgets{};
     std::set<std::string> updated_slices = state_ifc.get_updated_slices();
 
-    std::vector<backend::DrawCommandBase> commands{ };
     RenderTreeData new_tree{};
     auto render_ifcs = visitors::RenderIFCHolder{
       .state_sifc=&state_ifc,
-      .backend_aifc=command_creator.get(),
       .old_tree = &this->tree_,
       .new_tree=&new_tree,
-      .commands=&commands };
+    };
     visitors::RenderVisitor(&render_ifcs, uuid_t{}).visit(&(this->tree_.root().widget()));
-    
+    std::vector<std::unique_ptr<backend::DrawCommandBase>>  commands
+      = this->generate_commands(new_tree);
+    this->backend_->get_synchronous_interface()->update_commands(std::move(commands));
+ 
     std::swap(this->tree_, new_tree);
+    
   };
 
-  
+  std::vector<std::unique_ptr<backend::DrawCommandBase>>  RenderTree::RenderTreeImpl::generate_commands( const RenderTreeData& tree){
+    auto backend_aifc =  this->backend_->get_asynchronous_interface();
+    auto& screen_uuids = tree.root().children();
+    assert(screen_uuids.size() == 1);
+    std::vector<std::unique_ptr<backend::DrawCommandBase>> ret{};
+    visitors::CommandVisitor(backend_aifc.get(), &ret, &tree).visit_screen(*screen_uuids.begin() );
+    std::cout << "ncommands " << ret.size() << std::endl;
+    return  ret;
+  };
   RenderTree::RenderTree(
       std::unique_ptr<widgets::application::ApplicationBase> application,
       std::queue<AppEvent>* app_queue,

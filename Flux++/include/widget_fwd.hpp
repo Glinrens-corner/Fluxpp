@@ -1,13 +1,14 @@
 #ifndef FLUXPP_WIDGET_FWD_HPP
 #define FLUXPP_WIDGET_FWD_HPP
-#include <boost/uuid/uuid.hpp>
-
+#include "uuid.hpp"
+#include <vector>
+#include "backend/base_backend.hpp"
 namespace fluxpp{
   namespace visitors{
     class RenderVisitor;
-  }
+    class CommandVisitor;
+  } // visitor
 
-  using uuid_t = boost::uuids::uuid;
   namespace widgets{
     
     struct WidgetReturnContainer;
@@ -32,10 +33,17 @@ namespace fluxpp{
     class BaseWidget {
     public:
       virtual std::vector<const std::string*> get_subscriptions()const=0;
-	virtual uuid_t accept(visitors::RenderVisitor& visitor,
-			      std::unique_ptr<BaseWidget>,
-			      uuid_t parent_uuid )=0;
+      virtual std::unique_ptr<backend::DrawCommandBase> accept(
+	  uuid_t parent_uuid,
+	  uuid_t widget_uuid,
+	  visitors::CommandVisitor&
+      )const =0;
+      virtual uuid_t accept(visitors::RenderVisitor& visitor,
+			    std::unique_ptr<BaseWidget>,
+			    uuid_t parent_uuid )=0;
     };
+    template<class subscriptions_t, class listened_for_t>
+    struct  Widget;//: public BaseWidget;
   }// widgets
   
   namespace widgets{

@@ -147,7 +147,10 @@ namespace fluxpp{
     };
 
     const std::vector<uuid_t>& children()const {return this->children_;};
-    
+    void children(std::vector<uuid_t> new_children ) {
+      this->children_= new_children;
+    };
+
     bool update_child(uuid_t old, uuid_t updated ){
       for ( auto& child : this->children_){
 	if (child == old){
@@ -161,6 +164,8 @@ namespace fluxpp{
     uuid_t parent() const {return this->parent_;};
     
     void parent(uuid_t new_parent){this->parent_ =new_parent;};
+    
+    const widgets::BaseWidget& widget()const{ return *(this->widget_);};
     
   private:
     widgets::WidgetData settings_;
