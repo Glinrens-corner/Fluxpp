@@ -1,6 +1,7 @@
 #ifndef FLUXPP_RENDER_DATA_HPP
 #define FLUXPP_RENDER_DATA_HPP
 #include "widget.hpp"
+#include "widget_node.hpp"
 #include <boost/uuid/uuid_generators.hpp>
 #include <map>
 

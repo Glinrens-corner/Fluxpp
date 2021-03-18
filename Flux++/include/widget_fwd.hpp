@@ -36,6 +36,7 @@ namespace fluxpp{
       virtual std::unique_ptr<backend::DrawCommandBase> accept(
 	  uuid_t parent_uuid,
 	  uuid_t widget_uuid,
+	  std::vector<uuid_t> children,
 	  visitors::CommandVisitor&
       )const =0;
       virtual uuid_t accept(visitors::RenderVisitor& visitor,

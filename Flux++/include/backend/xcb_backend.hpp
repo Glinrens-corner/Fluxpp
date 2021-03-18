@@ -21,13 +21,16 @@ namespace fluxpp{
 	  uuid_t parent_uuid,
 	  uuid_t node_uuid);
       std::unique_ptr<DrawCommandBase> get_root_node_command(
-	  uuid_t uuid);
+	  uuid_t uuid,
+	  std::vector<uuid_t> children);
       std::unique_ptr<DrawCommandBase> get_window_node_command(
 	  uuid_t parent_uuid,
-	  uuid_t node_uuid);
+	  uuid_t node_uuid,
+	  std::vector<uuid_t> children);
       std::unique_ptr<DrawCommandBase> get_node_command(
 	  uuid_t parent_uuid,
-	  uuid_t node_uuid);
+	  uuid_t node_uuid,
+	  std::vector<uuid_t> children);
     };
 
     class XCBBackendImpl;

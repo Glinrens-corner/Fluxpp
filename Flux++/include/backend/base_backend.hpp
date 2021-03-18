@@ -38,13 +38,16 @@ namespace fluxpp{
 	  uuid_t parent_uuid,
 	  uuid_t uuid) =0;
       virtual std::unique_ptr<DrawCommandBase> get_root_node_command(
-	  uuid_t uuid ) = 0;
+	  uuid_t uuid,
+	  std::vector<uuid_t> children) = 0;
       virtual std::unique_ptr<DrawCommandBase> get_window_node_command(
 	  uuid_t parend_uuid,
-	  uuid_t window_uuid ) = 0;
+	  uuid_t window_uuid,
+	  std::vector<uuid_t> children ) = 0;
       virtual std::unique_ptr<DrawCommandBase> get_node_command(
 	  uuid_t parent_uuid,
-	  uuid_t node_uuid) = 0;
+	  uuid_t node_uuid,
+	  std::vector<uuid_t> children) = 0;
     };
     
     class BaseBackend{

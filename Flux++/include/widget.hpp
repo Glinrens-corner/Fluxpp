@@ -232,8 +232,12 @@ namespace fluxpp{
 	std::unique_ptr<DrawCommandBase> accept(
 	    uuid_t parent_uuid,
 	    uuid_t widget_uuid,
+	    std::vector<uuid_t> children,
 	    visitors::CommandVisitor& visitor)const{
-	  return visitor.transform(parent_uuid,widget_uuid, *this);
+	  return visitor.transform(
+	      parent_uuid,
+	      widget_uuid,
+	      std::move(children), *this);
 	};
 					       
       
@@ -410,6 +414,7 @@ namespace fluxpp{
 	std::unique_ptr<DrawCommandBase> accept(
 	    uuid_t parent_uuid,
 	    uuid_t widget_uuid,
+	    std::vector<uuid_t> children,
 	    visitors::CommandVisitor& visitor)const{
 	  return visitor.transform(parent_uuid,widget_uuid, *this);
 	};
@@ -437,6 +442,7 @@ namespace fluxpp{
 	std::unique_ptr<DrawCommandBase> accept(
 	    uuid_t parent_uuid,
 	    uuid_t widget_uuid,
+	    std::vector<uuid_t> children,
 	    visitors::CommandVisitor& visitor)const{
 	  return visitor.transform(parent_uuid,widget_uuid, *this);
 	};

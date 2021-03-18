@@ -49,20 +49,24 @@ namespace fluxpp{
     };
     
     std::unique_ptr<DrawCommandBase> XCBAsynchronousInterface
-    ::get_root_node_command(uuid_t node_uuid){
+    ::get_root_node_command(
+	uuid_t node_uuid,
+	std::vector<uuid_t> children){
       return std::unique_ptr<DrawCommandBase>(new xcb::DrawColorCommand{} ); 
     };
 
     std::unique_ptr<DrawCommandBase> XCBAsynchronousInterface
     ::get_window_node_command(
 	uuid_t parent_uuid,
-	uuid_t uuid){
+	uuid_t uuid,
+	std::vector<uuid_t> children){
       return std::unique_ptr<DrawCommandBase>(new xcb::DrawColorCommand{} ); 
     };
     std::unique_ptr<DrawCommandBase> XCBAsynchronousInterface
     ::get_node_command(
 	uuid_t parent_uuid,
-	uuid_t uuid){
+	uuid_t uuid,
+	std::vector<uuid_t> children){
       return std::unique_ptr<DrawCommandBase>(new xcb::DrawColorCommand{} ); 
     };
 

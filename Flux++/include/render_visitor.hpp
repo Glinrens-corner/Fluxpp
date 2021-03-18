@@ -140,6 +140,7 @@ namespace fluxpp{
 
       
     private:
+      uuid_t parent_id;
       uuid_t visiting ;
       RenderIFCHolder * render_ifcs;
     };

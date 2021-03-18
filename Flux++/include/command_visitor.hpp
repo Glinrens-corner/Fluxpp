@@ -29,8 +29,9 @@ namespace fluxpp{
       std::unique_ptr<DrawCommandBase> transform(
 	  uuid_t parent_uuid,
 	  uuid_t widget_uuid,
+	  std::vector<uuid_t> children,
 	  const widgets::Widget<T1, T2>& widget){
-	return this->backend_aifc_->get_node_command(parent_uuid, widget_uuid);
+	return this->backend_aifc_->get_node_command(parent_uuid, widget_uuid, std::move(children));
       };
       
       std::unique_ptr<DrawCommandBase> transform(
