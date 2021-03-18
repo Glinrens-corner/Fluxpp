@@ -10,7 +10,12 @@ namespace fluxpp{
   } // visitor
 
   namespace widgets{
-    
+    namespace builtin{
+      enum class Color{
+	black,
+	white
+      };
+    }// builtin
     struct WidgetReturnContainer;
     template<class Arg_t>
     struct Filter;

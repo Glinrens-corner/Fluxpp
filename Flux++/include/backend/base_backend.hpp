@@ -18,6 +18,9 @@ namespace fluxpp{
     class DrawCommandBase{
     public:
       DrawCommandBase(CommandType command_type) :command_type_(command_type){};
+	// the base class needs a virtual function so dynamic_cast works...
+	virtual void foo(){};
+      
       CommandType command_type()const {return this->command_type_;}; 
     private:
       CommandType command_type_; 

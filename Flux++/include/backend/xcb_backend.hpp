@@ -1,6 +1,7 @@
 #ifndef XCBBACKEND_HPP
 #define XCBBACKEND_HPP
 #include "backend/base_backend.hpp"
+#include "widget_fwd.hpp"
 #include <vector>
 
 namespace fluxpp{
@@ -9,8 +10,79 @@ namespace fluxpp{
     namespace xcb{
       class DrawColorCommand: public DrawCommandBase{
       public:
-	DrawColorCommand():DrawCommandBase(CommandType::draw_color){ };
+	DrawColorCommand(
+	    uuid_t parent_uuid,
+	    uuid_t widget_uuid,
+	    widgets::builtin::Color color)
+	  :DrawCommandBase(CommandType::draw_color)
+	  ,parent_uuid_(parent_uuid)
+	  ,own_uuid_(widget_uuid)
+	  ,color_(color){ };
+      public:
+	uuid_t parent_uuid_;
+	uuid_t own_uuid_;
+	widgets::builtin::Color color_;
       };
+      
+      class DrawTextCommand: public DrawCommandBase{
+      public:
+	DrawTextCommand(
+	    uuid_t parent_uuid,
+	    uuid_t widget_uuid,
+	    std::string text)
+	  :DrawCommandBase(CommandType::draw_text)
+	  ,parent_uuid_(parent_uuid)
+	  ,own_uuid_(widget_uuid)
+	  ,text_(std::move(text)){ };
+      public:
+	uuid_t parent_uuid_;
+	uuid_t own_uuid_;
+	std::string text_;
+      };
+      class NodeCommand: public DrawCommandBase{
+      public:
+	NodeCommand(
+	    uuid_t parent_uuid,
+	    uuid_t widget_uuid,
+	    std::vector<uuid_t> children)
+	  :DrawCommandBase(CommandType::node)
+	  ,parent_uuid_(parent_uuid)
+	  ,own_uuid_(widget_uuid)
+	  ,children_(std::move(children)){ };
+      public:
+	uuid_t parent_uuid_;
+	uuid_t own_uuid_;
+	std::vector<uuid_t> children_;
+      };
+      
+      class WindowNodeCommand: public DrawCommandBase{
+      public:
+	WindowNodeCommand(
+	    uuid_t parent_uuid,
+	    uuid_t widget_uuid,
+	    std::vector<uuid_t> children)
+	  :DrawCommandBase(CommandType::window_node)
+	  ,parent_uuid_(parent_uuid)
+	  ,own_uuid_(widget_uuid)
+	  ,children_(std::move(children)){ };
+      public:
+	uuid_t parent_uuid_;
+	uuid_t own_uuid_;
+	std::vector<uuid_t> children_;
+      };
+      class RootNodeCommand: public DrawCommandBase{
+      public:
+        RootNodeCommand(
+	    uuid_t widget_uuid,
+	    std::vector<uuid_t> children)
+	  :DrawCommandBase(CommandType::root_node)
+	  ,own_uuid_(widget_uuid)
+	  ,children_(std::move(children)){ };
+      public:
+	uuid_t own_uuid_;
+	std::vector<uuid_t> children_;
+      };
+
     }
     
     class XCBAsynchronousInterface: public AsynchronousBackendInterfaceBase {

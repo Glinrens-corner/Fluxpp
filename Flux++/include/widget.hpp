@@ -400,10 +400,6 @@ namespace fluxpp{
   // builtin
   namespace widgets {
     namespace builtin{
-      enum class Color{
-	black,
-	white
-      };
       
       class ColorWidget:public BaseWidget{
       public:
