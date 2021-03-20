@@ -61,6 +61,7 @@ namespace fluxpp{
     };
     void start(){
       this->render_tree_->prepare_render(false);
+      this->backend_->handle_events();
     };
   private:
     std::unique_ptr<std::queue<AppEvent>> queue_system_;

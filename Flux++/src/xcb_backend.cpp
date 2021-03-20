@@ -1,4 +1,5 @@
 #include "backend/xcb_backend.hpp"
+#include "backend/xcb_renderer.hpp"
 #include <map>
 #include <iostream>
 
@@ -9,13 +10,21 @@ namespace fluxpp{
       void lock(){};
       
       void update_commands(std::vector<std::unique_ptr<DrawCommandBase>> vec){
-	std::cout<< "updating draw_commands"<< std::endl;
 	this->draw_commands_.clear();
 	this->insert_commands(this->draw_commands_, std::move(vec));
+	this->renderer_.update_commands(&(this->draw_commands_), this->root_uuid);
+	this->renderer_.render();
       };
+
+      void render() {this->renderer_.render(); };
+      void handle_events(){ this->renderer_.handle_events();};
       void unlock(){};
+
+      
     private:
-      void insert_commands(std::map<uuid_t,std::unique_ptr<DrawCommandBase>>& command_map , std::vector<std::unique_ptr<DrawCommandBase>> vec){
+      void insert_commands(
+	  std::map<uuid_t,std::unique_ptr<DrawCommandBase>>& command_map ,
+	  std::vector<std::unique_ptr<DrawCommandBase>> vec){
 	using namespace xcb;
 	for (auto & command: vec){
 	  std::unique_ptr<DrawCommandBase> tmp{};
@@ -81,8 +90,11 @@ namespace fluxpp{
 	  };
 
 	}
+	
       };
+      
     private:
+      xcb::XCBRenderer renderer_{};
       uuid_t root_uuid;
       std::map<uuid_t,std::unique_ptr<DrawCommandBase>> draw_commands_{};
     };
@@ -143,6 +155,7 @@ namespace fluxpp{
       return std::unique_ptr<DrawCommandBase>(new xcb::NodeCommand{parent_uuid, uuid, std::move(children)} ); 
     };
 
+    void XCBBackend::handle_events(){this->impl->handle_events();};
     XCBBackend XCBBackend::create( ){
       return XCBBackend{ new XCBBackendImpl{} };
 

@@ -1,6 +1,7 @@
 #ifndef XCBBACKEND_HPP
 #define XCBBACKEND_HPP
 #include "backend/base_backend.hpp"
+#include "backend/xcb_renderer_fwd.hpp"
 #include "widget_fwd.hpp"
 #include <vector>
 
@@ -137,7 +138,7 @@ namespace fluxpp{
 	other.impl = nullptr;
       };
       XCBBackend& operator=(const XCBBackend& ) = delete;
-      
+      void handle_events();
       XCBBackend& operator=(XCBBackend&& other){
 	auto tmp = other.impl;
 	other.impl = this->impl;

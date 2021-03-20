@@ -44,12 +44,19 @@ namespace fluxpp{
       keymap_notify
     };
 
+    
     struct Coordinate{      
     public:
       int16_t x =0;
       int16_t y =0;
     };
 
+    inline Coordinate operator+(Coordinate a, Coordinate b){
+      return Coordinate{
+	.x= static_cast<int16_t>(a.x+b.x),
+	  .y = static_cast<int16_t>(a.y+b.y)};
+    };
+    
     template <EventType event_type_>
     class EventBase {
     public:

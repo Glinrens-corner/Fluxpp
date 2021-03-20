@@ -29,7 +29,6 @@ namespace fluxpp{
     class SynchronousBackendInterfaceBase{
     public:
       virtual void update_commands(std::vector<std::unique_ptr<DrawCommandBase> > vec ) =0;
-
     };
     
     class AsynchronousBackendInterfaceBase{
@@ -55,6 +54,7 @@ namespace fluxpp{
     
     class BaseBackend{
     public:
+      virtual void handle_events() =0;
       virtual std::unique_ptr<AsynchronousBackendInterfaceBase> get_asynchronous_interface()=0;
       virtual std::unique_ptr<SynchronousBackendInterfaceBase> get_synchronous_interface()=0;
     };
