@@ -10,7 +10,7 @@
 #include "render_visitor.hpp"
 #include "command_visitor.hpp"
 #include "backend/base_backend.hpp"
-
+#include "color.hpp"
 namespace fluxpp{
   //using declarations
   // Size
@@ -423,6 +423,7 @@ namespace fluxpp{
 
 	WidgetData extract_data(){return WidgetData( Size{}, std::vector<Coordinate>{} ) ;};
 
+	Color color()const{return this->color_;};
 	
 	LocatedWidget<ColorWidget> at(int16_t x, int16_t y) {
 	  return LocatedWidget<ColorWidget>(*this, Coordinate{x,y}); };

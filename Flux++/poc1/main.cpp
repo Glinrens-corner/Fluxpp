@@ -21,6 +21,7 @@ using fluxpp::events::ButtonReleaseEvent;
 
 using fluxpp::widgets::builtin::ColorWidget;
 using fluxpp::widgets::builtin::Color;
+using fluxpp::widgets::builtin::ColorEnum;
 using fluxpp::widgets::builtin::TextWidget;
 using fluxpp::widgets::AppEvent;
 using fluxpp::widgets::AppEventContainer;
@@ -32,12 +33,12 @@ Widget<SubscribeTo<bool>,
   .with_render_lambda([](bool clicked){
 	if ( clicked) {
 	  return make_widget_return_container(Size{.width=300, .height=150},
-					      ColorWidget(Color::white ).at(0,0),
+					      ColorWidget(Color::from_color_enum( ColorEnum::white) ).at(0,0),
 					      TextWidget("Click Me").at(0,0)
 					      );
 	} else {
 	  return make_widget_return_container(Size{.width=300, .height=150},
-					      ColorWidget(Color::black ).at(0,0),
+					      ColorWidget(Color::from_color_enum( ColorEnum::white) ).at(0,0),
 					      TextWidget("Click Me").at(0,0)
 					      );
 

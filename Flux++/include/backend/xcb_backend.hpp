@@ -89,7 +89,8 @@ namespace fluxpp{
     class XCBAsynchronousInterface: public AsynchronousBackendInterfaceBase {
       std::unique_ptr<DrawCommandBase> get_draw_color_command(
 	  uuid_t parent_uuid,
-	  uuid_t node_uuid);
+	  uuid_t node_uuid,
+	  widgets::builtin::Color color );
       std::unique_ptr<DrawCommandBase> get_draw_text_command(
 	  uuid_t parent_uuid,
 	  uuid_t node_uuid);

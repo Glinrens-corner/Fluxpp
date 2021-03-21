@@ -117,9 +117,11 @@ namespace fluxpp{
     std::unique_ptr<DrawCommandBase> XCBAsynchronousInterface
     ::get_draw_color_command(
 	uuid_t parent_uuid,
-	uuid_t uuid){
+	uuid_t uuid,
+	widgets::builtin::Color color
+    ){
       return std::unique_ptr<DrawCommandBase>(
-	  new xcb::DrawColorCommand{parent_uuid, uuid, widgets::builtin::Color::black} ); 
+	  new xcb::DrawColorCommand{parent_uuid, uuid, color } ); 
     };
     std::unique_ptr<DrawCommandBase> XCBAsynchronousInterface
     ::get_draw_text_command(

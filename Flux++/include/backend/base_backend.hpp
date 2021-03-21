@@ -2,11 +2,13 @@
 #define BASEBACKEND_HPP
 #include <memory>
 #include "uuid.hpp"
+#include "color.hpp"
 #include <vector>
 namespace fluxpp{
   
   
   namespace backend{
+
     enum class CommandType{
       draw_color,
       draw_text,
@@ -35,7 +37,9 @@ namespace fluxpp{
     public:
       virtual std::unique_ptr<DrawCommandBase> get_draw_color_command(
 	  uuid_t parent_uuid,
-	  uuid_t uuid) = 0;
+	  uuid_t uuid,
+	  widgets::builtin::Color color
+      ) = 0;
       virtual std::unique_ptr<DrawCommandBase> get_draw_text_command(
 	  uuid_t parent_uuid,
 	  uuid_t uuid) =0;

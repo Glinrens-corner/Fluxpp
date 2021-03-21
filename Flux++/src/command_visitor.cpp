@@ -41,7 +41,11 @@ namespace fluxpp{
 	  uuid_t parent_uuid,
 	  uuid_t widget_uuid,
 	  const widgets::builtin::ColorWidget& widget){
-      return this->backend_aifc_->get_draw_color_command(parent_uuid, widget_uuid);
+      return this->backend_aifc_->get_draw_color_command(
+	  parent_uuid,
+	  widget_uuid,
+	  widget.color()
+      );
     }
     
     

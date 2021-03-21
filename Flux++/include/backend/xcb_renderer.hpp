@@ -4,25 +4,33 @@
 #include <xcb/xcb.h>
 #include <map>
 #include "uuid.hpp"
+#include "widget.hpp"
 
 namespace fluxpp {
   namespace backend{
     namespace xcb {
       class XCBWindowRenderer{
       public:
+	
 	XCBWindowRenderer(
 	    xcb_window_t window,
 	    xcb_screen_t * screen,
-	    xcb_connection_t* connection)
+	    xcb_connection_t* connection,
+	    widgets::Size size)
 	  :window_(window),
 	   screen_(screen),
-	   connection_(connection){};
+	   connection_(connection),
+	   size_(size){};
 	~XCBWindowRenderer();
-	static XCBWindowRenderer  create(xcb_connection_t * connection);
+	static XCBWindowRenderer  create(xcb_connection_t * connection, widgets::Size);
 	void render(
 	    std::map<uuid_t,std::unique_ptr<DrawCommandBase>>& commands ,
 	    uuid_t  root);
+	void clear(uint8_t* , widgets::Size);
+	void render_command(DrawColorCommand* ,uint8_t*, widgets::Size);
+	void render_command(DrawTextCommand* ,uint8_t*, widgets::Size);
       private:
+	widgets::Size size_;
 	xcb_window_t window_;
 	xcb_screen_t * screen_; 
 	xcb_connection_t * connection_;
