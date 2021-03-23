@@ -1,13 +1,10 @@
 #ifndef FLUXPP_WIDGET_FWD_HPP
 #define FLUXPP_WIDGET_FWD_HPP
 #include "uuid.hpp"
+#include "visitor_fwd.hpp"
 #include <vector>
 #include "backend/base_backend.hpp"
 namespace fluxpp{
-  namespace visitors{
-    class RenderVisitor;
-    class CommandVisitor;
-  } // visitor
 
   namespace widgets{
     struct WidgetReturnContainer;

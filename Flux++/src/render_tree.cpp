@@ -55,7 +55,7 @@ namespace fluxpp {
   
 
 
-  class RenderTree::RenderTreeImpl{
+  class RenderTreeImpl{
   public:
     RenderTreeImpl(std::unique_ptr<widgets::application::ApplicationBase>&& application,
 		   std::queue<AppEvent>*app_queue,
@@ -66,11 +66,13 @@ namespace fluxpp {
       ,state_(state_ptr)
       ,tree_(std::move(application)){
     };
-    
+    std::vector<std::unique_ptr<backend::DrawCommandBase>>extract_draw_commands(bool rerender_all);
     void prepare_render(bool rerender_all);
     
     std::vector<std::unique_ptr<backend::DrawCommandBase>> generate_commands(const RenderTreeData&);
-
+  public:
+    void lock(){};
+    void unlock(){};
   private:
     std::queue<AppEvent>* app_queue_;
     backend::BaseBackend* backend_;
@@ -227,12 +229,9 @@ namespace fluxpp {
 
   } // visitors
 
-  void RenderTree::RenderTreeImpl::prepare_render(bool rerender_all){
+  std::vector<std::unique_ptr<backend::DrawCommandBase>> RenderTreeImpl::extract_draw_commands(bool rerender_all){
     auto state_ifc = this->state_->get_synchronous_interface();
       
-      
-
-    std::set<uuid_t> rerender_widgets{};
     std::set<std::string> updated_slices = state_ifc.get_updated_slices();
 
     RenderTreeData new_tree{};
@@ -244,19 +243,17 @@ namespace fluxpp {
     visitors::RenderVisitor(&render_ifcs, uuid_t{}).visit(&(this->tree_.root().widget()));
     std::vector<std::unique_ptr<backend::DrawCommandBase>>  commands
       = this->generate_commands(new_tree);
-    this->backend_->get_synchronous_interface()->update_commands(std::move(commands));
  
     std::swap(this->tree_, new_tree);
-    
+    return commands;
   };
-
-  std::vector<std::unique_ptr<backend::DrawCommandBase>>  RenderTree::RenderTreeImpl::generate_commands( const RenderTreeData& tree){
+  
+  std::vector<std::unique_ptr<backend::DrawCommandBase>>  RenderTreeImpl::generate_commands( const RenderTreeData& tree){
     auto backend_aifc =  this->backend_->get_asynchronous_interface();
     auto& screen_uuids = tree.root().children();
     assert(screen_uuids.size() == 1);
     std::vector<std::unique_ptr<backend::DrawCommandBase>> ret{};
     visitors::CommandVisitor(backend_aifc.get(), &ret, &tree).visit_screen(*screen_uuids.begin() );
-    std::cout << "ncommands " << ret.size() << std::endl;
     return  ret;
   };
   RenderTree::RenderTree(
@@ -273,14 +270,23 @@ namespace fluxpp {
 	)
     ){};
   
-  void RenderTree::prepare_render(bool rerender_all){
-    this->impl->prepare_render(rerender_all);
-  };
   
   RenderTree::~RenderTree(){
     if (this->impl){
       delete this->impl;
     };
   }
-  
+  SynchronousRenderTreeInterface RenderTree::get_synchronous_interface(){
+    this->impl->lock();
+    return SynchronousRenderTreeInterface(this->impl);
+  };
+
+  std::vector<std::unique_ptr<backend::DrawCommandBase>> SynchronousRenderTreeInterface::extract_draw_commands(){
+    return this->impl->extract_draw_commands(false);
+  }
+  SynchronousRenderTreeInterface::~SynchronousRenderTreeInterface(){
+    if(this->impl){
+      this->impl->unlock();
+    };
+  };
 } // fluxpp

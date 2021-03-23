@@ -138,6 +138,7 @@ namespace fluxpp{
       XCBBackend(XCBBackend&& other):impl(other.impl){
 	other.impl = nullptr;
       };
+      void set_render_tree(RenderTree* ) ;
       XCBBackend& operator=(const XCBBackend& ) = delete;
       void handle_events();
       XCBBackend& operator=(XCBBackend&& other){

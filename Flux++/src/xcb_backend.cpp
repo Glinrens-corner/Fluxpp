@@ -1,5 +1,6 @@
 #include "backend/xcb_backend.hpp"
 #include "backend/xcb_renderer.hpp"
+#include "render_tree.hpp"
 #include <map>
 #include <iostream>
 
@@ -9,15 +10,9 @@ namespace fluxpp{
     public:
       void lock(){};
       
-      void update_commands(std::vector<std::unique_ptr<DrawCommandBase>> vec){
-	this->draw_commands_.clear();
-	this->insert_commands(this->draw_commands_, std::move(vec));
-	this->renderer_.update_commands(&(this->draw_commands_), this->root_uuid);
-	this->renderer_.render();
-      };
-
-      void render() {this->renderer_.render(); };
-      void handle_events(){ this->renderer_.handle_events();};
+      
+      void set_render_tree(RenderTree* render_tree){this->render_tree_ = render_tree;};
+      void handle_events(){ this->renderer_.handle_events(this->render_tree_);};
       void unlock(){};
 
       
@@ -94,6 +89,7 @@ namespace fluxpp{
       };
       
     private:
+      RenderTree* render_tree_=nullptr;
       xcb::XCBRenderer renderer_{};
       uuid_t root_uuid;
       std::map<uuid_t,std::unique_ptr<DrawCommandBase>> draw_commands_{};
@@ -103,16 +99,15 @@ namespace fluxpp{
       this->impl->lock();
     };
 
-    void XCBSynchronousInterface::update_commands(std::vector<std::unique_ptr<DrawCommandBase> > vec ){
-      this->impl->update_commands(std::move(vec));
-    };
     
     XCBSynchronousInterface::~XCBSynchronousInterface(){
       if(this->impl){
 	this->impl->unlock();
       };
     };
-
+    void XCBBackend::set_render_tree(RenderTree* tree){
+      this->impl->set_render_tree(tree);
+    }
     
     std::unique_ptr<DrawCommandBase> XCBAsynchronousInterface
     ::get_draw_color_command(

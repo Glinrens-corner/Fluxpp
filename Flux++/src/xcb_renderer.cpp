@@ -39,6 +39,7 @@ namespace fluxpp {
 	  std::stack<Coordinate, std::vector<Coordinate>> stack_{};
       };
 
+      
       namespace detail {
 	bool query_render_extension(xcb_connection_t *connection ){
 	  const xcb_query_extension_reply_t * render_extension =
@@ -50,11 +51,9 @@ namespace fluxpp {
         xcb_screen_t*  screen = xcb_setup_roots_iterator(
 	    xcb_get_setup(connection)).data;
 	if (detail::query_render_extension( connection) ){
-	  std::cout << "RenderExtension detected"<< std::endl;
  	}else {
 	  throw std::exception();
 	};
-	std::cout << "depth " <<static_cast<uint32_t>(screen->root_depth)<< std::endl; 
 	if(FT_Init_FreeType(&ft_library)){
 	  throw std::runtime_error("could not initiate freetype");
 	};
@@ -83,7 +82,6 @@ namespace fluxpp {
       };
       
       void XCBWindowRenderer::render(std::map<uuid_t,std::unique_ptr<DrawCommandBase>>&  commands , uuid_t  window_uuid){
-	std::cout << "starting render" << std::endl;
 	path_stack_t path_stack{};
 	path_stack.push({0,window_uuid});
 
@@ -148,7 +146,6 @@ namespace fluxpp {
 	);
 	if(!image )
 	  throw std::runtime_error("couldn't create image");
-	std::cout<< "image depth " << static_cast<uint32_t>(image->depth) << std::endl;
        
 	xcb_pixmap_t  framebuffer= xcb_generate_id(this->connection_);
 	xcb_create_pixmap(
@@ -184,12 +181,7 @@ namespace fluxpp {
 	} ;
       };
       void XCBWindowRenderer::render_command(DrawColorCommand* command,uint8_t* bitmap, widgets::Size size){
-	std::cout << "setting color"  << std::endl;;
 	auto color =command->color_;
-	std::cout << static_cast<uint32_t>(color.red) << " "
-	  << static_cast<uint32_t>(color.green) << " "
-	  << static_cast<uint32_t>(color.blue)  << " "
-	  << static_cast<uint32_t>(color.alpha) << std::endl;
 	for(int i=0; i<size.width*size.height*4; i+=4 ){
 	  auto ptr = bitmap+i;
 	    
@@ -213,7 +205,7 @@ namespace fluxpp {
 	  auto glyphbm = &face->glyph->bitmap;
 	  std::size_t render_width = std::min<unsigned long>(glyphbm->width, bmsize.width - bmstart_y );
 	  std::size_t render_height = std::min<unsigned long>(glyphbm->rows, bmsize.height - bmstart_x );
-	  std::cout << glyphbm->width << " " << glyphbm->pitch << std::endl;
+	 
 	  
 	  for ( int i = 0; i<render_height;i++){
 	    auto gl_rowptr =  glyphbm->buffer + i*glyphbm->pitch;
@@ -239,7 +231,6 @@ namespace fluxpp {
 	    0,
 	    &ft_face);
 	if( ft_error){
-	  std::cout << "fontfile not found "<<std::endl;
 	  return ;
 	};
 	const char* text = "asdfg";
@@ -272,9 +263,6 @@ namespace fluxpp {
 	  if(FT_Load_Glyph(ft_face, glyph_info[iglyph].codepoint, FT_LOAD_DEFAULT)) {
 	    throw std::runtime_error("failed to load glyph");
 	  };
-	  std::cout << "cursor: "
-		    << cursor_x << " "
-		    << cursor_y << std::endl;
 	       
 	  detail::draw_glyph(
 	      bitmap, bitmap_size,
@@ -294,11 +282,20 @@ namespace fluxpp {
 	this->connection_ = xcb_connect(nullptr, &screen_num );
       };
       
-      bool XCBRenderer::handle_events()  {
+      bool XCBRenderer::handle_events(RenderTree* render_tree)  {
+	this->commands_.update_commands(
+	    render_tree->get_synchronous_interface().extract_draw_commands()
+	);
+	this->render();
+	xcb_flush(this->connection_ );
+	
 	xcb_generic_event_t * event;
 	while( (event = xcb_wait_for_event(this->connection_))){
 	  switch(event->response_type & ~0x80){
 	  case XCB_EXPOSE:{
+	    this->commands_.update_commands(
+	        render_tree->get_synchronous_interface().extract_draw_commands()
+	    );
 	    this->render();
 	    xcb_flush(this->connection_ );
 	    break;
@@ -317,22 +314,22 @@ namespace fluxpp {
 	if (not this->window_renderer_) {
 	  this->window_renderer_ = std::make_unique<XCBWindowRenderer>( XCBWindowRenderer::create(this->connection_,Size{100,200}));
 	};
+	
 	auto  root_command = [&](){
-	  auto const&  it = this->commands_->find(this->root_);
-	  auto const & [key, root_command] = *it;
+	  auto const& [key, root_command]  = *this->commands_.commands().find(
+	      this->commands_.root_uuid()
+	  );
 	  assert(root_command->command_type() == CommandType::root_node);
 	
 	  return dynamic_cast<RootNodeCommand*>( root_command.get() );}();
 	assert(root_command->children_.size() == 1);
 	
-	this->window_renderer_->render(*this->commands_, root_command->children_[0]);
+	this->window_renderer_->render(this->commands_.commands(), root_command->children_[0]);
       };
+      
       void XCBRenderer::update_commands(
 	  std::map<uuid_t,std::unique_ptr<DrawCommandBase>>* commands ,
 	  uuid_t  root){
-	using namespace std::chrono_literals;
-	this->commands_ =  commands;
-	this->root_ = root;
       };
       
       XCBRenderer::~XCBRenderer(){

@@ -37,7 +37,7 @@ namespace fluxpp{
 	  queue_system.get(),
 	  backend,
 	  state.get());
-	  
+      backend->set_render_tree(render_tree.get()); 
       return Ui(
          std::move(queue_system),
 	 backend,
@@ -60,7 +60,6 @@ namespace fluxpp{
 	);
     };
     void start(){
-      this->render_tree_->prepare_render(false);
       this->backend_->handle_events();
     };
   private:

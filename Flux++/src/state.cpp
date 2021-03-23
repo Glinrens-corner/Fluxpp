@@ -64,11 +64,6 @@ namespace fluxpp{
       }
       
       std::set<std::string> get_updated_slices(){
-	std::cout << "updated_slices " << "\n";
-	for (auto& slice :this->updated_slices_){
-	  std::cout<< slice << "\n";
-	};
-	std::cout << "that's all" << std::endl;
 	return std::set<std::string>(this->updated_slices_);
       };
       

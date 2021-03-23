@@ -4,8 +4,27 @@
 #import "widget.hpp"
 
 namespace fluxpp{
-  //   class WidgetNode;
+  class RenderTreeImpl;
   
+  class SynchronousRenderTreeInterface{
+  public:
+    explicit SynchronousRenderTreeInterface(RenderTreeImpl * impl):impl(impl){};
+    SynchronousRenderTreeInterface(const SynchronousRenderTreeInterface& ) = delete;
+    SynchronousRenderTreeInterface(SynchronousRenderTreeInterface&& old):impl(old.impl){old.impl=nullptr;};
+    SynchronousRenderTreeInterface& operator=(const SynchronousRenderTreeInterface& ) = delete;
+    SynchronousRenderTreeInterface& operator=(SynchronousRenderTreeInterface&& old){
+      auto tmp = old.impl;
+      old.impl = this->impl;
+      this->impl = tmp;
+      return *this;
+    };
+    ~SynchronousRenderTreeInterface();
+  public:
+    std::vector<std::unique_ptr<backend::DrawCommandBase> >extract_draw_commands(); 
+    
+  private:
+    RenderTreeImpl* impl;
+  };
   class RenderTree{
   public:
     RenderTree(
@@ -14,11 +33,10 @@ namespace fluxpp{
 	backend::BaseBackend*,
 	state::State*);
     RenderTree(const RenderTree &) = delete;
-    void prepare_render(bool render_all);
+    SynchronousRenderTreeInterface get_synchronous_interface();
     
     ~RenderTree();
   private:
-    class RenderTreeImpl;
     RenderTreeImpl* impl;
   };
 }// fluxpp

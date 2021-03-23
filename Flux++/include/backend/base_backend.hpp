@@ -1,63 +1,16 @@
-#ifndef BASEBACKEND_HPP
-#define BASEBACKEND_HPP
+#ifndef FLUXPP_BASE_BACKEND_HPP
+#define FLUXPP_BASE_BACKEND_HPP
 #include <memory>
-#include "uuid.hpp"
-#include "color.hpp"
+#include "backend/base_backend_fwd.hpp"
+#include "render_tree_fwd.hpp"
 #include <vector>
+
 namespace fluxpp{
-  
-  
   namespace backend{
 
-    enum class CommandType{
-      draw_color,
-      draw_text,
-      root_node,
-      window_node,
-      node
-    };
-    
-    class DrawCommandBase{
-    public:
-      DrawCommandBase(CommandType command_type) :command_type_(command_type){};
-	// the base class needs a virtual function so dynamic_cast works...
-	virtual void foo(){};
-      
-      CommandType command_type()const {return this->command_type_;}; 
-    private:
-      CommandType command_type_; 
-    };
-
-    class SynchronousBackendInterfaceBase{
-    public:
-      virtual void update_commands(std::vector<std::unique_ptr<DrawCommandBase> > vec ) =0;
-    };
-    
-    class AsynchronousBackendInterfaceBase{
-    public:
-      virtual std::unique_ptr<DrawCommandBase> get_draw_color_command(
-	  uuid_t parent_uuid,
-	  uuid_t uuid,
-	  widgets::builtin::Color color
-      ) = 0;
-      virtual std::unique_ptr<DrawCommandBase> get_draw_text_command(
-	  uuid_t parent_uuid,
-	  uuid_t uuid) =0;
-      virtual std::unique_ptr<DrawCommandBase> get_root_node_command(
-	  uuid_t uuid,
-	  std::vector<uuid_t> children) = 0;
-      virtual std::unique_ptr<DrawCommandBase> get_window_node_command(
-	  uuid_t parend_uuid,
-	  uuid_t window_uuid,
-	  std::vector<uuid_t> children ) = 0;
-      virtual std::unique_ptr<DrawCommandBase> get_node_command(
-	  uuid_t parent_uuid,
-	  uuid_t node_uuid,
-	  std::vector<uuid_t> children) = 0;
-    };
-    
     class BaseBackend{
     public:
+      virtual void set_render_tree(RenderTree * ) =0; 
       virtual void handle_events() =0;
       virtual std::unique_ptr<AsynchronousBackendInterfaceBase> get_asynchronous_interface()=0;
       virtual std::unique_ptr<SynchronousBackendInterfaceBase> get_synchronous_interface()=0;
@@ -67,4 +20,4 @@ namespace fluxpp{
 
 
 
-#endif //BASEBACKEND_HPP
+#endif //FLUXPP_BASE_BACKEND_HPP

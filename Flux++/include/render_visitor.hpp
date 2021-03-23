@@ -4,9 +4,10 @@
 #include <boost/uuid/uuid.hpp>
 #include <typeinfo>
 #include <typeindex>
+#include <vector>
+#include "widget_fwd.hpp"
 #include "backend/base_backend.hpp"
 #include "state.hpp"
-#include "widget_fwd.hpp"
 #include "render_tree.hpp"
 
 namespace fluxpp{
