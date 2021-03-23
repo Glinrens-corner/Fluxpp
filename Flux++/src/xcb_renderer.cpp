@@ -1,13 +1,22 @@
 #include "backend/xcb_renderer.hpp"
 #include <xcb/render.h>
 #include <xcb/xcb_image.h>
+
+#include <hb.h>
+#include <hb-ft.h>
 #include <thread>
+#include <stdexcept>
 #include <chrono>
 #include <cassert>
+#include <fstream>
 #include <iostream>
+#include <algorithm>
 #include <stack>
 #include "widget.hpp"
 #include "gui_event.hpp"
+namespace {
+  FT_Library ft_library;
+}
 
 namespace fluxpp {
   namespace backend{
@@ -45,6 +54,10 @@ namespace fluxpp {
  	}else {
 	  throw std::exception();
 	};
+	std::cout << "depth " <<static_cast<uint32_t>(screen->root_depth)<< std::endl; 
+	if(FT_Init_FreeType(&ft_library)){
+	  throw std::runtime_error("could not initiate freetype");
+	};
 	xcb_window_t win = xcb_generate_id(connection);
 	uint32_t mask=XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
 	uint32_t values[2];
@@ -74,8 +87,8 @@ namespace fluxpp {
 	path_stack_t path_stack{};
 	path_stack.push({0,window_uuid});
 
-	auto bitmap = std::unique_ptr<uint8_t[]>(new uint8_t[this->size_.width * this->size_.height*4]); 
-	this->clear(bitmap.get(),this->size_ );
+	uint8_t* bitmap = new uint8_t[this->size_.width * this->size_.height*4]; 
+	this->clear(bitmap,this->size_ );
 	
 	while(path_stack.size()>=1){
 	  auto [child_pos, uuid] = path_stack.top( );
@@ -106,7 +119,7 @@ namespace fluxpp {
 	  case CommandType::draw_color:
 	    this->render_command(
 		dynamic_cast<DrawColorCommand*>(next_item),
-		bitmap.get(),
+		bitmap,
 		this->size_);
 	    path_stack.pop();
 	    path_stack.top().first+=1;
@@ -114,7 +127,7 @@ namespace fluxpp {
 	  case CommandType::draw_text:
 	    this->render_command(
 		dynamic_cast<DrawTextCommand*>(next_item),
-		bitmap.get(),
+		bitmap,
 		this->size_);
 	    path_stack.pop();
 	    path_stack.top().first+=1;
@@ -123,14 +136,20 @@ namespace fluxpp {
 	    throw std::runtime_error( "unknown type");
 	  };
 	};
-	xcb_image_t* image = xcb_image_create_from_bitmap_data(bitmap.get(), this->size_.width, this->size_.height);
+	xcb_image_t* image =xcb_image_create_native(
+	    this->connection_,
+	    this->size_.width,
+	    this->size_.height,
+	    XCB_IMAGE_FORMAT_Z_PIXMAP,
+	    this->screen_->root_depth,
+	    bitmap,
+	    this->size_.width * this->size_.height*4,
+	    bitmap
+	);
 	if(!image )
 	  throw std::runtime_error("couldn't create image");
-	image->format = XCB_IMAGE_FORMAT_XY_BITMAP;
-	xcb_image_t * final_image = xcb_image_native(
-	    this->connection_,
-	    image,
-	    1);
+	std::cout<< "image depth " << static_cast<uint32_t>(image->depth) << std::endl;
+       
 	xcb_pixmap_t  framebuffer= xcb_generate_id(this->connection_);
 	xcb_create_pixmap(
 	    this->connection_,
@@ -151,9 +170,9 @@ namespace fluxpp {
 	    pixmask,
 	    pixvalue);
 	
-	xcb_image_put(this->connection_, this->window_, pixcontext,final_image, 0,0,0);
+	xcb_image_put(this->connection_, this->window_, pixcontext,image, 0,0,0);
 
-	xcb_image_destroy(final_image);
+	xcb_image_destroy(image);
 	xcb_free_gc(this->connection_, pixcontext);
 	xcb_map_window(this->connection_, this->window_);
       };
@@ -166,16 +185,106 @@ namespace fluxpp {
       };
       void XCBWindowRenderer::render_command(DrawColorCommand* command,uint8_t* bitmap, widgets::Size size){
 	std::cout << "setting color"  << std::endl;;
-	for(int i=0; i<size.width*size.height; i+=4 ){
+	auto color =command->color_;
+	std::cout << static_cast<uint32_t>(color.red) << " "
+	  << static_cast<uint32_t>(color.green) << " "
+	  << static_cast<uint32_t>(color.blue)  << " "
+	  << static_cast<uint32_t>(color.alpha) << std::endl;
+	for(int i=0; i<size.width*size.height*4; i+=4 ){
 	  auto ptr = bitmap+i;
-	  auto color =command->color_;
-	  ptr[0] = color.red;
+	    
+	  ptr[0] = color.blue;
 	  ptr[1] = color.green;
-	  ptr[2] = color.blue;
-	  ptr[3] = color.alpha;
+	  ptr[2] = color.red;
 	};
       };
-      void XCBWindowRenderer::render_command(DrawTextCommand* ,uint8_t*, widgets::Size){
+
+      namespace detail{
+	void draw_glyph(
+	    uint8_t * bitmap,Size  bmsize,
+	    FT_Face  face,
+	    std::size_t bmstart_x,
+	    std::size_t bmstart_y
+	) {
+	  if (not face->glyph->format==FT_GLYPH_FORMAT_BITMAP){
+	  };
+	  FT_Render_Glyph(face->glyph,
+			  FT_RENDER_MODE_NORMAL);
+	  auto glyphbm = &face->glyph->bitmap;
+	  std::size_t render_width = std::min<unsigned long>(glyphbm->width, bmsize.width - bmstart_y );
+	  std::size_t render_height = std::min<unsigned long>(glyphbm->rows, bmsize.height - bmstart_x );
+	  std::cout << glyphbm->width << " " << glyphbm->pitch << std::endl;
+	  
+	  for ( int i = 0; i<render_height;i++){
+	    auto gl_rowptr =  glyphbm->buffer + i*glyphbm->pitch;
+	    auto bm_rowptr =  bitmap + (i+bmstart_y) *4*bmsize.width;
+	    for (int j = 0; j<render_width; j++){
+	      (bm_rowptr+4*(j+bmstart_x))[0] = *(gl_rowptr+j);
+	      (bm_rowptr+4*(j+bmstart_x))[1] =*(gl_rowptr+j);
+	      (bm_rowptr+4*(j+bmstart_x))[2] =*(gl_rowptr+j);
+	      (bm_rowptr+4*(j+bmstart_x))[3] = 0xff;
+		
+	    };
+	  };
+	};
+
+      };
+      
+      void XCBWindowRenderer::render_command(DrawTextCommand* command,uint8_t* bitmap, widgets::Size bitmap_size){
+	FT_Face ft_face;
+	FT_Error ft_error;
+	ft_error = FT_New_Face(
+	    ft_library,
+	    "/usr/share/fonts/truetype/LiberationSansNarrow-Regular.ttf",
+	    0,
+	    &ft_face);
+	if( ft_error){
+	  std::cout << "fontfile not found "<<std::endl;
+	  return ;
+	};
+	const char* text = "asdfg";
+	hb_buffer_t *buf = hb_buffer_create();
+	if (! hb_buffer_allocation_successful( buf)) {
+	  throw std::runtime_error( "buffer creation failed");
+	};
+	hb_buffer_add_utf8(buf, text, -1, 0,-1  );
+	
+	FT_Set_Char_Size(ft_face,0,32*64,96,96);
+	hb_font_t * hb_font; 
+        hb_font = hb_ft_font_create(ft_face, nullptr);
+
+	hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
+	hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
+	hb_buffer_set_language(buf, hb_language_from_string("en",-1));
+	
+	
+	if (not hb_shape_full(hb_font,buf,nullptr, 0, nullptr)){
+	  throw std::runtime_error( "shaping failed" );
+	};
+	unsigned int glyph_count;
+	hb_glyph_info_t *glyph_info = hb_buffer_get_glyph_infos( buf, &glyph_count);
+	hb_glyph_position_t* glyph_pos = hb_buffer_get_glyph_positions( buf, &glyph_count);
+
+	std::size_t  cursor_x = 0;
+	std::size_t  cursor_y = 16;
+	for(unsigned int iglyph = 0; iglyph< glyph_count; iglyph++){
+	  hb_codepoint_t glyphid = glyph_info[iglyph].codepoint;
+	  if(FT_Load_Glyph(ft_face, glyph_info[iglyph].codepoint, FT_LOAD_DEFAULT)) {
+	    throw std::runtime_error("failed to load glyph");
+	  };
+	  std::cout << "cursor: "
+		    << cursor_x << " "
+		    << cursor_y << std::endl;
+	       
+	  detail::draw_glyph(
+	      bitmap, bitmap_size,
+	      ft_face,
+	      cursor_x+glyph_pos[iglyph].x_offset,
+	      cursor_y+glyph_pos[iglyph].y_offset
+	  );
+	  cursor_x += glyph_pos[iglyph].x_advance/64;
+	  cursor_y += glyph_pos[iglyph].y_advance/64;
+	};
       };
 
 

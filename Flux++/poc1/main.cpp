@@ -33,12 +33,12 @@ Widget<SubscribeTo<bool>,
   .with_render_lambda([](bool clicked){
 	if ( clicked) {
 	  return make_widget_return_container(Size{.width=300, .height=150},
-					      ColorWidget(Color::from_color_enum( ColorEnum::white) ).at(0,0),
+					      ColorWidget(Color::from_color_enum( ColorEnum::blue) ).at(0,0),
 					      TextWidget("Click Me").at(0,0)
 					      );
 	} else {
 	  return make_widget_return_container(Size{.width=300, .height=150},
-					      ColorWidget(Color::from_color_enum( ColorEnum::white) ).at(0,0),
+					      ColorWidget(Color::from_color_enum( ColorEnum::green) ).at(0,0),
 					      TextWidget("Click Me").at(0,0)
 					      );
 
@@ -73,7 +73,7 @@ int main() {
   using widgets::AppEvent;
   auto backend = XCBBackend::create() ;
   Ui mygui= Ui::create(&backend, myapp);
-  mygui.add_state_slice("state/button", state::StateSlice<bool>(true,
+  mygui.add_state_slice("state/button", state::StateSlice<bool>(false,
 								[](bool state, const AppEvent& event  ){
 								  return std::make_pair( not state , std::vector<AppEvent>{});
 								}
