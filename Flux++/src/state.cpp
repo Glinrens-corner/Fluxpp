@@ -1,14 +1,18 @@
 #include <cassert>
 #include "state.hpp"
+#include <queue>
+#include "app_event.hpp"
 #include <map>
 #include <iostream>
 
 namespace fluxpp{
   namespace state {
-    
+    using queue_t = std::queue<widgets::AppEvent>;
     
     // SubdivisibleStateSliceHolder:public BaseStateSlice
     class StateImpl {
+    public:
+      StateImpl(queue_t* queue):queue_(queue){};
     public:
       bool add_slice (std::string_view& loc, std::unique_ptr<BaseStateSlice>&& slice ){
 	if(loc.find("/")!= std::string::npos  ){
@@ -24,6 +28,7 @@ namespace fluxpp{
 	std::string slice_path,
 	void* arg,
 	std::type_index type_idx ){
+	
 	std::string_view view( slice_path);
 	if((view.find("state/") != 0) ){
 	  throw std::exception();
@@ -43,6 +48,14 @@ namespace fluxpp{
       
       void add_updated_slice(std::string loc){
 	this->updated_slices_.insert( std::move(loc));
+      };
+
+      void dispatch_events(){
+	std::cout<< "dispatching event"<< std::endl;
+	while(!this->queue_->empty()){
+	  this->dispatch_event(this->queue_->front());
+	  this->queue_->pop();
+	};
       };
       
       std::vector<AppEvent> dispatch_event( AppEvent event ){
@@ -64,12 +77,14 @@ namespace fluxpp{
       }
       
       std::set<std::string> get_updated_slices(){
+	this->dispatch_events();
 	return std::set<std::string>(this->updated_slices_);
       };
       
       void lock(){};
       void unlock(){};
     private:
+      queue_t* queue_;
       std::set<std::string> updated_slices_{};
       std::map<std::string, std::unique_ptr<BaseStateSlice>> slices_;
     };
@@ -95,7 +110,7 @@ namespace fluxpp{
       return this->impl->get_updated_slices();
     };
     
-    State::State():impl( new StateImpl{}){}
+    State::State(queue_t* queue):impl( new StateImpl{queue}){}
     
     State::~State(){ delete this->impl;};
 

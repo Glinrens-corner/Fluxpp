@@ -295,7 +295,6 @@ namespace fluxpp {
 	  switch(event->response_type & ~0x80){
 	  case XCB_EXPOSE:{
 	    auto  expose_event = reinterpret_cast<xcb_expose_event_t *>( event); 
-	    std::cout << "EXPOSE " << expose_event->height <<" " << expose_event->width<< std::endl;
 	    this->commands_.update_commands(
 	        render_tree->get_synchronous_interface().extract_draw_commands()
 	    );
@@ -305,9 +304,6 @@ namespace fluxpp {
 	  };
 	  case XCB_BUTTON_PRESS:{
 	    auto  button_event = reinterpret_cast<xcb_button_press_event_t *>( event); 
-	    std::cout << "BUTTON_PRESS "
-		      << button_event->event_x <<" "
-		      << button_event->event_y << std::endl;
 	    render_tree->get_synchronous_interface()
 	      .dispatch_event(events::ButtonPressEvent{
 		button_event->sequence,
@@ -316,6 +312,10 @@ namespace fluxpp {
 		  button_event->state,
 		  button_event->detail
 	      });
+	    this->commands_.update_commands(
+	        render_tree->get_synchronous_interface().extract_draw_commands()
+	    );
+	    this->render();
 	    break;
 	  };
 	    

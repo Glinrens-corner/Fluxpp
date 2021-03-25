@@ -2,6 +2,8 @@
 #define FLUXPP_STATE_HPP
 #include <tuple>
 #include <vector>
+#include <queue>
+
 #include <set>
 #include <typeinfo>
 #include <typeindex>
@@ -17,6 +19,7 @@ namespace fluxpp{
     template <class T>
     class  StateSlice ;
     
+    using queue_t = std::queue<widgets::AppEvent>;
     
     class BaseStateSlice{
     public:
@@ -84,7 +87,7 @@ namespace fluxpp{
     
     class State{
     public:
-      State();
+      State(queue_t*);
       State(State&& old):impl(old.impl){ };
       State(const State& old )= delete;
       State& operator=(State&& old) {

@@ -79,6 +79,7 @@ int main() {
   Ui mygui= Ui::create(&backend, myapp);
   mygui.add_state_slice("state/button", state::StateSlice<bool>(false,
 								[](bool state, const AppEvent& event  ){
+								  std::cout << "changing state"<< std::endl;
 								  return std::make_pair( not state , std::vector<AppEvent>{});
 								}
 								)

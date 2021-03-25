@@ -30,7 +30,7 @@ namespace fluxpp{
 		     widgets::application::Application<Ts...> application
     ){
       auto queue_system = std::make_unique<std::queue<AppEvent>>();
-      auto state = std::make_unique<state::State>();
+      auto state = std::make_unique<state::State>(queue_system.get());
       auto render_tree = std::make_unique<RenderTree>(
 	  std::unique_ptr<widgets::application::ApplicationBase>(
 	      new widgets::application::Application{std::move(application)}),
