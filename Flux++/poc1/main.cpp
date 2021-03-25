@@ -1,5 +1,4 @@
 #include <mem_comparable_closure.hpp>
-#include <iostream>
 #include "widget.hpp"
 #include "gui_event.hpp"
 #include "ui.hpp"
@@ -47,7 +46,6 @@ Widget<SubscribeTo<bool>,
   .for_events<ButtonPressEvent, ButtonReleaseEvent>()
   .build_with_event_handling_lambdas([](const ButtonPressEvent& event)->AppEventContainer
 				 {
-				   std::cout<< "button pressed" << std::endl;
 				   return AppEvent("state/button");},
 
 				 [] (const ButtonReleaseEvent& event )->AppEventContainer
@@ -79,7 +77,6 @@ int main() {
   Ui mygui= Ui::create(&backend, myapp);
   mygui.add_state_slice("state/button", state::StateSlice<bool>(false,
 								[](bool state, const AppEvent& event  ){
-								  std::cout << "changing state"<< std::endl;
 								  return std::make_pair( not state , std::vector<AppEvent>{});
 								}
 								)

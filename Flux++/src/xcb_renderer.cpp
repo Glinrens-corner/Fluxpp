@@ -61,18 +61,27 @@ namespace fluxpp {
 	uint32_t mask=XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
 	uint32_t values[2];
 	values[0] = screen->white_pixel;
-	values[1]= XCB_EVENT_MASK_EXPOSURE |XCB_EVENT_MASK_BUTTON_PRESS ;
+	values[1]= XCB_EVENT_MASK_EXPOSURE
+	  |XCB_EVENT_MASK_BUTTON_PRESS
+	  |XCB_EVENT_MASK_STRUCTURE_NOTIFY;
        
-	xcb_create_window(connection,
-			  XCB_COPY_FROM_PARENT,
-			  win,
-			  screen->root,
-			  0, 0,
-			  size.width, size.height,
-			  10,
-			  XCB_WINDOW_CLASS_INPUT_OUTPUT,
-			  screen->root_visual,
-			  mask, values);
+	xcb_create_window(
+	    connection,
+	    XCB_COPY_FROM_PARENT,
+	    win,
+	    screen->root,
+	    0, 0,
+	    size.width, size.height,
+	    10,
+	    XCB_WINDOW_CLASS_INPUT_OUTPUT,
+	    screen->root_visual,
+	    mask, values);
+	const uint32_t config_values [] = {200,100 };
+	xcb_configure_window(
+	    connection,
+	    win,
+	    XCB_CONFIG_WINDOW_X |XCB_CONFIG_WINDOW_Y,
+	    config_values) ;
 	xcb_map_window(connection, win);
 	xcb_flush(connection);
 	return {win,screen,connection , size};
@@ -287,6 +296,7 @@ namespace fluxpp {
 	this->commands_.update_commands(
 	    render_tree->get_synchronous_interface().extract_draw_commands()
 	);
+	
 	this->render();
 	xcb_flush(this->connection_ );
 	
@@ -318,9 +328,21 @@ namespace fluxpp {
 	    this->render();
 	    break;
 	  };
-	    
+	  case XCB_CONFIGURE_NOTIFY:{
+	   auto configure_notify_event =reinterpret_cast<xcb_configure_notify_event_t *>( event);
+	   if (configure_notify_event->x != 200){
+	     
+	     const uint32_t config_values [] = {200,100 };
+	     xcb_configure_window(
+		 this->connection_,
+		 this->window_renderer_->window(),
+		 XCB_CONFIG_WINDOW_X |XCB_CONFIG_WINDOW_Y,
+		 config_values) ;
+
+		 };
+	    break;
+	  };
 	  default:{
-	    std::cout << "default" << std::endl;
 	    break;
 	  };
 	  };

@@ -3,7 +3,6 @@
 #include <queue>
 #include "app_event.hpp"
 #include <map>
-#include <iostream>
 
 namespace fluxpp{
   namespace state {
@@ -51,7 +50,6 @@ namespace fluxpp{
       };
 
       void dispatch_events(){
-	std::cout<< "dispatching event"<< std::endl;
 	while(!this->queue_->empty()){
 	  this->dispatch_event(this->queue_->front());
 	  this->queue_->pop();

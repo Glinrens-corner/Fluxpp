@@ -29,6 +29,7 @@ namespace fluxpp {
 	void clear(uint8_t* , widgets::Size);
 	void render_command(DrawColorCommand* ,uint8_t*, widgets::Size);
 	void render_command(DrawTextCommand* ,uint8_t*, widgets::Size);
+	xcb_window_t window(){return this->window_;};
       private:
 	widgets::Size size_;
 	xcb_window_t window_;
