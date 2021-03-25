@@ -61,7 +61,8 @@ namespace fluxpp {
 	uint32_t mask=XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
 	uint32_t values[2];
 	values[0] = screen->white_pixel;
-	values[1]= XCB_EVENT_MASK_EXPOSURE ;
+	values[1]= XCB_EVENT_MASK_EXPOSURE |XCB_EVENT_MASK_BUTTON_PRESS ;
+       
 	xcb_create_window(connection,
 			  XCB_COPY_FROM_PARENT,
 			  win,
@@ -293,6 +294,8 @@ namespace fluxpp {
 	while( (event = xcb_wait_for_event(this->connection_))){
 	  switch(event->response_type & ~0x80){
 	  case XCB_EXPOSE:{
+	    auto  expose_event = reinterpret_cast<xcb_expose_event_t *>( event); 
+	    std::cout << "EXPOSE " << expose_event->height <<" " << expose_event->width<< std::endl;
 	    this->commands_.update_commands(
 	        render_tree->get_synchronous_interface().extract_draw_commands()
 	    );
@@ -300,7 +303,24 @@ namespace fluxpp {
 	    xcb_flush(this->connection_ );
 	    break;
 	  };
+	  case XCB_BUTTON_PRESS:{
+	    auto  button_event = reinterpret_cast<xcb_button_press_event_t *>( event); 
+	    std::cout << "BUTTON_PRESS "
+		      << button_event->event_x <<" "
+		      << button_event->event_y << std::endl;
+	    render_tree->get_synchronous_interface()
+	      .dispatch_event(events::ButtonPressEvent{
+		button_event->sequence,
+		  Coordinate{.x=button_event->event_x,
+		    .y=button_event->event_y},
+		  button_event->state,
+		  button_event->detail
+	      });
+	    break;
+	  };
+	    
 	  default:{
+	    std::cout << "default" << std::endl;
 	    break;
 	  };
 	  };

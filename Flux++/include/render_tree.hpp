@@ -1,6 +1,7 @@
 #ifndef FLUXPP_RENDER_TREE_HPP
 #define FLUXPP_RENDER_TREE_HPP
 #import <queue>
+#import "gui_event.hpp"
 #import "widget.hpp"
 
 namespace fluxpp{
@@ -20,11 +21,12 @@ namespace fluxpp{
     };
     ~SynchronousRenderTreeInterface();
   public:
-    std::vector<std::unique_ptr<backend::DrawCommandBase> >extract_draw_commands(); 
-    
+    std::vector<std::unique_ptr<backend::DrawCommandBase> >extract_draw_commands();
+    void dispatch_event(events::ButtonPressEvent event );
   private:
     RenderTreeImpl* impl;
   };
+  
   class RenderTree{
   public:
     RenderTree(

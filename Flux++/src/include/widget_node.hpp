@@ -40,7 +40,10 @@ namespace fluxpp{
     };
 
     std::unique_ptr<base_t> extract_widget(){return std::move(this->widget_);};
-    base_t & widget(){return *this->widget_;};
+    
+    base_t& widget(){ return *(this->widget_);};
+    
+    const base_t& widget()const{ return *(this->widget_);};
   private:
     settings_t settings_;
     std::unique_ptr<base_t> widget_;
@@ -82,6 +85,10 @@ namespace fluxpp{
     uuid_t parent() const {return this->parent_;};
     
     void parent(uuid_t new_parent){this->parent_ =new_parent;};
+
+    base_t& widget(){ return *(this->widget_);};
+    
+    const base_t& widget()const{ return *(this->widget_);};
     
   private:
     settings_t settings_;
@@ -125,6 +132,9 @@ namespace fluxpp{
     uuid_t parent() const {return this->parent_;};
     
     void parent(uuid_t new_parent){this->parent_ =new_parent;};
+
+    base_t& widget(){ return *(this->widget_);};
+    const base_t& widget()const{ return *(this->widget_);};
     
   private:
     settings_t settings_;
@@ -165,6 +175,7 @@ namespace fluxpp{
     
     void parent(uuid_t new_parent){this->parent_ =new_parent;};
     
+    widgets::BaseWidget& widget(){ return *(this->widget_);};
     const widgets::BaseWidget& widget()const{ return *(this->widget_);};
     
   private:

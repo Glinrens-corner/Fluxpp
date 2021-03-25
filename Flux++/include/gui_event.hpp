@@ -60,9 +60,11 @@ namespace fluxpp{
     template <EventType event_type_>
     class EventBase {
     public:
+      
+    public:
       EventBase( uint16_t sequence ):
 	sequence_(sequence){}; 
-      EventType event_type()const{return event_type_; };
+      static constexpr EventType event_type(){return event_type_; };            
       uint64_t sequence()const{return this->sequence_; };
       // time()
     protected:
@@ -94,8 +96,18 @@ namespace fluxpp{
     
     template <EventType event_type_>
     class ButtonEvent_:public EventBase<event_type_>{
-      friend detail::NativeConverter;
+      
     public:
+      ButtonEvent_(uint16_t sequence,
+		  Coordinate coordinate,
+		  KeyOrButtonMask state,
+		  uint8_t button)
+	:EventBase<event_type_>(sequence)
+	,event_coordinate_(coordinate)
+	,state_(state)
+	,button_(button)
+	,same_screen_(true)
+	,impl_(nullptr){};
       Coordinate event_coordinate()const{return this->event_coordinate_ ;};
       //      uint32_t symbol(); //  TODO, what about emoji keyboards? they can have more modifiers.
       uint8_t button()const{return this->button_; };

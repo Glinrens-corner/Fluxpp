@@ -9,13 +9,17 @@
 #include "app_event.hpp"
 #include "render_visitor.hpp"
 #include "command_visitor.hpp"
+#include "dispatch_visitor.hpp"
+
 #include "backend/base_backend.hpp"
 #include "color.hpp"
+
 namespace fluxpp{
   //using declarations
   // Size
   namespace widgets{
     using visitors::RenderVisitor;
+    using visitors::DispatchVisitor;
     using mem_comparable_closure::Function;
     using mem_comparable_closure::ClosureMaker;
     using backend::DrawCommandBase;
@@ -34,6 +38,25 @@ namespace fluxpp{
     struct BaseSettings{};
   } // widgets
 
+  // DispatchVisitorApplicator
+  namespace widgets{
+    namespace detail{
+      template<class ...Arg_ts>
+      void discard(Arg_ts ... ) {};
+      // a little helper class to unwrap the event listener tuple
+
+      struct DispatchVisitorApplicator{
+	template<class ...Arg_ts>
+	void apply( std::tuple<Arg_ts ...>arg_tuple) {
+	  auto visitor = this->visitor;
+	  std::apply(
+	      [visitor](Arg_ts...args){discard(visitor->handle_handler(args)...);}, arg_tuple);
+	};
+      public:
+	visitors::DispatchVisitor* visitor;
+      };
+    }// detail
+  }// widgets
   
   // LocatedWidget
   namespace widgets{
@@ -60,57 +83,6 @@ namespace fluxpp{
     };
   }// widgets
 
-  // EventHandler
-  namespace widgets{
-    namespace detail{
-      // a little helper class to handle special EventHandler constructors
-      //
-      template<
-	class app_event_t,
-	class gui_event_t,
-	class T>
-      struct event_handler_helper{
-	static constexpr decltype(auto)convert( T&& fn) {
-	  return ClosureMaker<AppEventContainer, gui_event_t>
-	    ::make(fn)
-	    .as_fun();
-	};
-      };
-      
-      template<
-	class app_event_t,
-	class gui_event_t>
-      struct event_handler_helper<
-	app_event_t,
-	gui_event_t,
-	Function<AppEventContainer,gui_event_t> >{
-	
-	static constexpr decltype(auto) convert(
-	    Function<AppEventContainer,gui_event_t>&& fn
-	) {
-	  return fn;
-	};
-	
-      };
-    }//detail
-    
-    template< class app_event_t, class gui_event_t>
-    class EventHandler {
-    public:
-      template<class T>
-      explicit EventHandler(T fn ):
-	function_(
-	    detail
-	    ::event_handler_helper<app_event_t, gui_event_t, T>
-	    ::convert(std::move(fn))) { };
-		   
-      EventHandler(const EventHandler<app_event_t,gui_event_t>& other ):
-	function_(other.function_.copy()) { };
-      
-    public:
-      Function<AppEventContainer,gui_event_t> function_;
-    };
-  }// widgets
 
   // two metaprogramming helper classes
   namespace widgets{
@@ -229,16 +201,16 @@ namespace fluxpp{
 	this->get_subscription<0>(this->filters_,vec);
 	return vec;
       };
-	std::unique_ptr<DrawCommandBase> accept(
-	    uuid_t parent_uuid,
-	    uuid_t widget_uuid,
-	    std::vector<uuid_t> children,
-	    visitors::CommandVisitor& visitor)const{
-	  return visitor.transform(
-	      parent_uuid,
-	      widget_uuid,
-	      std::move(children), *this);
-	};
+      std::unique_ptr<DrawCommandBase> accept(
+	  uuid_t parent_uuid,
+	  uuid_t widget_uuid,
+	  std::vector<uuid_t> children,
+	  visitors::CommandVisitor& visitor)const{
+	return visitor.transform(
+	    parent_uuid,
+	    widget_uuid,
+	    std::move(children), *this);
+      };
 					       
       
       uuid_t accept(visitors::RenderVisitor& visitor,
@@ -247,8 +219,13 @@ namespace fluxpp{
 	return visitor.render_widget(
 	    std::move(widget),
 	    this->filters_,
-	     this->render_function_,
+	    this->render_function_,
 	    parent_uuid );
+      };
+      
+      void accept(visitors::DispatchVisitor& visitor){
+	auto applicator = widgets::detail::DispatchVisitorApplicator{.visitor=&visitor }; 
+	applicator.apply(this->listeners_);
       };
       
     private:
@@ -420,6 +397,8 @@ namespace fluxpp{
 		      uuid_t parent_uuid ){
 	  return visitor.render_widget(*this , std::move(widget), parent_uuid);
 	};
+	
+	void accept(visitors::DispatchVisitor& visitor){};
 
 	WidgetData extract_data(){return WidgetData( Size{}, std::vector<Coordinate>{} ) ;};
 
@@ -449,6 +428,11 @@ namespace fluxpp{
 		      uuid_t parent_uuid ){
 	  return visitor.render_widget(*this , std::move(widget), parent_uuid);
 	};
+
+	void accept(visitors::DispatchVisitor& visitor){};
+
+
+	
 	WidgetData extract_data(){return WidgetData( Size{}, std::vector<Coordinate>{} ) ;};
 	
 	TextWidget(std::string text):text_(std::move(text)){}
@@ -461,6 +445,7 @@ namespace fluxpp{
     };
   } // widgets
 
+  // screen
   namespace widgets{
     namespace screen {
       
@@ -486,215 +471,219 @@ namespace fluxpp{
       };
 
        
-    namespace detail{
+      namespace detail{
       
-      template<class ...Arg_ts>
-      struct ScreenReturnContainerMaker;
+	template<class ...Arg_ts>
+	struct ScreenReturnContainerMaker;
 
-      template<class ...Ts>
-      struct ScreenReturnContainerMaker<ScreenSettings,Ts...>{
-	static ScreenReturnContainer make(
-	    ScreenSettings settings, Ts...windows){
-	  std::vector<window::WindowBase*> vec1{
-	    static_cast<window::WindowBase*>(new Ts{std::move(windows)})...
-	      };
+	template<class ...Ts>
+	struct ScreenReturnContainerMaker<ScreenSettings,Ts...>{
+	  static ScreenReturnContainer make(
+	      ScreenSettings settings, Ts...windows){
+	    std::vector<window::WindowBase*> vec1{
+	      static_cast<window::WindowBase*>(new Ts{std::move(windows)})...
+		};
 	  
-	  return ScreenReturnContainer(
-	      settings
-	      ,std::vector<std::unique_ptr<window::WindowBase>>(vec1.cbegin(),vec1.cend())
-	  );
-	}
-      };
-    }//detail
+	    return ScreenReturnContainer(
+		settings
+		,std::vector<std::unique_ptr<window::WindowBase>>(vec1.cbegin(),vec1.cend())
+	    );
+	  }
+	};
+      }//detail
     
-    template <class ...Arg_ts>
-    ScreenReturnContainer make_screen_return_container(  Arg_ts... args){
+      template <class ...Arg_ts>
+      ScreenReturnContainer make_screen_return_container(  Arg_ts... args){
        
-      return detail::ScreenReturnContainerMaker<Arg_ts...>::make( std::move(args)...);
-    };
+	return detail::ScreenReturnContainerMaker<Arg_ts...>::make( std::move(args)...);
+      };
 
 
     
 
       
-    template<class subscriptions_t, class listened_for_t>
-    struct  Screen:public ScreenBase{
-    private:
-      template<class ...F>
-      using to_function = Function<ScreenReturnContainer, F...>;
-      template <class T>
-      using to_event_handler = EventHandler<AppEvent, T>;
-
-      using filters_tuple_t = typename subscriptions_t
-	::template map<Filter>
-	::template apply<std::tuple>;
-     
-      using function_t = typename subscriptions_t
-	::template apply<to_function> ;   
-     
-      using listener_tuple_t = typename listened_for_t
-	::template map<to_event_handler>
-	::template apply<std::tuple>;
-    public:
-  
-      Screen(filters_tuple_t filters,
-	     function_t render_function,
-	     listener_tuple_t listeners) :
-	filters_(std::move(filters)),
-	render_function_ (std::move(render_function)),
-	listeners_(std::move(listeners)){};
-      
-      std::vector<const std::string*> get_subscriptions()const{
-	return {};
-      };
-      
-      uuid_t accept(RenderVisitor& visitor,
-		    std::unique_ptr<ScreenBase> screen,
-		    uuid_t parent_uuid ){
-        return visitor.render_widget(
-	    std::move(screen),
-	    this->filters_,
-	    this->render_function_,
-	    parent_uuid );
-      };
-
-
-    private:
-      filters_tuple_t filters_;
-      function_t render_function_;
-      listener_tuple_t listeners_;
-    };
-
-    
-    struct ScreenBuilder{
-    private:
-      template<class ...F>
-      using to_fn_ptr = ScreenReturnContainer(*)(F... );
-     
-      template<class ...F>
-      using to_closure_maker = ClosureMaker<ScreenReturnContainer, F...>;
-     
-      template<class ...F>
-      using to_function = Function<ScreenReturnContainer, F...>;
-     
-      template <class T>
-      using to_event_handler = EventHandler<AppEvent,T>;
-    public:
-      // OK, normally a Builder returns itself. We do this a bit differently here as the builder also collects the types of its arguments.
-      // The builder has 4 main states.
-      //   state 0 (ScreenBuilder) the sourrounding state
-      //   state 1 when Filters are set
-      //   state 2 when also the render function is set
-      //   state 2.5 when the subscribed to EventTypes are set
-      //   // state 3 when the event handler are set. we currently build directly.
-
-      template <class subscriptions_t, class listened_for_t>
-      struct ScreenBuilderState2_5;
-
-      template < class subscriptions_t,  class ... listened_for_ts  >
-      struct ScreenBuilderState2_5<subscriptions_t, ListenFor<listened_for_ts...>>{
+      template<class subscriptions_t, class listened_for_t>
+      struct  Screen:public ScreenBase{
       private:
-	using listened_for_t = ListenFor<listened_for_ts...>;
-       
+	template<class ...F>
+	using to_function = Function<ScreenReturnContainer, F...>;
+	template <class T>
+	using to_event_handler = EventHandler<AppEvent, T>;
+
 	using filters_tuple_t = typename subscriptions_t
 	  ::template map<Filter>
 	  ::template apply<std::tuple>;
-       
+     
 	using function_t = typename subscriptions_t
-	  ::template apply<to_function> ;
+	  ::template apply<to_function> ;   
+     
+	using listener_tuple_t = typename listened_for_t
+	  ::template map<to_event_handler>
+	  ::template apply<std::tuple>;
       public:
-	ScreenBuilderState2_5(filters_tuple_t filters,
-			      function_t function)
-	  :filters(filters),
-	   render_function(std::move(function)){};
-       
-	template<class ...Arg_ts>
-	decltype(auto) build_with_event_handling_lambdas(Arg_ts...args){
-
-	  auto tpl =  std::make_tuple(EventHandler<AppEvent, listened_for_ts>(args ) ... );
-
-	  return Screen<subscriptions_t, listened_for_t>(std::move(this->filters),
-
-							 std::move(this->render_function),
-							 std::move(tpl)
-	  );
+  
+	Screen(filters_tuple_t filters,
+	       function_t render_function,
+	       listener_tuple_t listeners) :
+	  filters_(std::move(filters)),
+	  render_function_ (std::move(render_function)),
+	  listeners_(std::move(listeners)){};
+      
+	std::vector<const std::string*> get_subscriptions()const{
+	  return {};
 	};
-	filters_tuple_t filters;
-	function_t render_function;
-
+      
+	uuid_t accept(RenderVisitor& visitor,
+		      std::unique_ptr<ScreenBase> screen,
+		      uuid_t parent_uuid ){
+	  return visitor.render_widget(
+	      std::move(screen),
+	      this->filters_,
+	      this->render_function_,
+	      parent_uuid );
+	};
+	
+	void accept(visitors::DispatchVisitor& visitor){
+	  auto applicator = widgets::detail::DispatchVisitorApplicator{.visitor=&visitor }; 
+	  applicator.apply(this->listeners_);
+	};
+      private:
+	filters_tuple_t filters_;
+	function_t render_function_;
+	listener_tuple_t listeners_;
       };
 
-      // sub_t is for a SubscribeTo<...> class
-      template <class sub_t>
-      struct ScreenBuilderState2{
+    
+      struct ScreenBuilder{
       private:
-	using filters_tuple_t = typename sub_t
-	  ::template map<Filter>
-	  ::template apply<std::tuple>;
-	using function_t = typename sub_t
-	  ::template apply<to_function> ;
+	template<class ...F>
+	using to_fn_ptr = ScreenReturnContainer(*)(F... );
+     
+	template<class ...F>
+	using to_closure_maker = ClosureMaker<ScreenReturnContainer, F...>;
+     
+	template<class ...F>
+	using to_function = Function<ScreenReturnContainer, F...>;
+     
+	template <class T>
+	using to_event_handler = EventHandler<AppEvent,T>;
       public:
-	ScreenBuilderState2(filters_tuple_t filters,
-			    function_t function):
-	  filters(filters),
-	  render_function(std::move(function)){
+	// OK, normally a Builder returns itself. We do this a bit differently here as the builder also collects the types of its arguments.
+	// The builder has 4 main states.
+	//   state 0 (ScreenBuilder) the sourrounding state
+	//   state 1 when Filters are set
+	//   state 2 when also the render function is set
+	//   state 2.5 when the subscribed to EventTypes are set
+	//   // state 3 when the event handler are set. we currently build directly.
+
+	template <class subscriptions_t, class listened_for_t>
+	struct ScreenBuilderState2_5;
+
+	template < class subscriptions_t,  class ... listened_for_ts  >
+	struct ScreenBuilderState2_5<subscriptions_t, ListenFor<listened_for_ts...>>{
+	private:
+	  using listened_for_t = ListenFor<listened_for_ts...>;
+       
+	  using filters_tuple_t = typename subscriptions_t
+	    ::template map<Filter>
+	    ::template apply<std::tuple>;
+       
+	  using function_t = typename subscriptions_t
+	    ::template apply<to_function> ;
+	public:
+	  ScreenBuilderState2_5(filters_tuple_t filters,
+				function_t function)
+	    :filters(filters),
+	     render_function(std::move(function)){};
+       
+	  template<class ...Arg_ts>
+	  decltype(auto) build_with_event_handling_lambdas(Arg_ts...args){
+
+	    auto tpl =  std::make_tuple(EventHandler<AppEvent, listened_for_ts>(args ) ... );
+
+	    return Screen<subscriptions_t, listened_for_t>(std::move(this->filters),
+
+							   std::move(this->render_function),
+							   std::move(tpl)
+	    );
+	  };
+	  filters_tuple_t filters;
+	  function_t render_function;
+
 	};
 
-	decltype(auto) build_without_event_handlers(){
-	  return this->for_events<>().build_with_event_handling_lambdas();
-	};
+	// sub_t is for a SubscribeTo<...> class
+	template <class sub_t>
+	struct ScreenBuilderState2{
+	private:
+	  using filters_tuple_t = typename sub_t
+	    ::template map<Filter>
+	    ::template apply<std::tuple>;
+	  using function_t = typename sub_t
+	    ::template apply<to_function> ;
+	public:
+	  ScreenBuilderState2(filters_tuple_t filters,
+			      function_t function):
+	    filters(filters),
+	    render_function(std::move(function)){
+	  };
 
-	template<class ...listened_for_ts>
-	decltype(auto) for_events(){
-	  using state2_5_builder_t = ScreenBuilderState2_5<sub_t, ListenFor<listened_for_ts...>>; 
-	  return state2_5_builder_t(this->filters, std::move(this->render_function) );
-	};
+	  decltype(auto) build_without_event_handlers(){
+	    return this->for_events<>().build_with_event_handling_lambdas();
+	  };
+
+	  template<class ...listened_for_ts>
+	  decltype(auto) for_events(){
+	    using state2_5_builder_t = ScreenBuilderState2_5<sub_t, ListenFor<listened_for_ts...>>; 
+	    return state2_5_builder_t(this->filters, std::move(this->render_function) );
+	  };
 
 	
-	filters_tuple_t filters;
-	function_t render_function;
-      };
-
-      template <class sub_t>
-      struct ScreenBuilderState1{
-	using filter_tuple_t = typename sub_t
-	  ::template map<Filter>::template apply<std::tuple>; 
-	template<class T>
-	decltype(auto) with_render_lambda(T fn){
-	  using fn_ptr_t  =  typename sub_t
-	    ::template apply< to_fn_ptr>;
-
-	  // casting to a function pointer to make sure it is a non capturing lambda
-	  fn_ptr_t fn_ptr = fn;
-	  using closure_maker_t = typename sub_t
-	    ::template apply<to_closure_maker>;
-	  using function_t = typename sub_t
-	    ::template apply<to_function>;
-	 
-	  return ScreenBuilderState2<sub_t>(
-	      this->filters,
-	      closure_maker_t::make(fn_ptr).as_fun()
-	  );
+	  filters_tuple_t filters;
+	  function_t render_function;
 	};
 
-        filter_tuple_t filters;
-      };
+	template <class sub_t>
+	struct ScreenBuilderState1{
+	  using filter_tuple_t = typename sub_t
+	    ::template map<Filter>::template apply<std::tuple>; 
+	  template<class T>
+	  decltype(auto) with_render_lambda(T fn){
+	    using fn_ptr_t  =  typename sub_t
+	      ::template apply< to_fn_ptr>;
 
-      template<class ... subscription_ts>
-      decltype(auto) with_filters(Filter<subscription_ts>... filters){
-	using follow_t = ScreenBuilderState1<SubscribeTo<subscription_ts...> >; 
-	return follow_t{std::make_tuple(filters...)};
-      };
+	    // casting to a function pointer to make sure it is a non capturing lambda
+	    fn_ptr_t fn_ptr = fn;
+	    using closure_maker_t = typename sub_t
+	      ::template apply<to_closure_maker>;
+	    using function_t = typename sub_t
+	      ::template apply<to_function>;
+	 
+	    return ScreenBuilderState2<sub_t>(
+		this->filters,
+		closure_maker_t::make(fn_ptr).as_fun()
+	    );
+	  };
 
-      ScreenBuilderState1<SubscribeTo<>> without_filters(){
-	return ScreenBuilderState1<SubscribeTo<>>{std::make_tuple()};
-      };
+	  filter_tuple_t filters;
+	};
 
-    };
+	template<class ... subscription_ts>
+	decltype(auto) with_filters(Filter<subscription_ts>... filters){
+	  using follow_t = ScreenBuilderState1<SubscribeTo<subscription_ts...> >; 
+	  return follow_t{std::make_tuple(filters...)};
+	};
+
+	ScreenBuilderState1<SubscribeTo<>> without_filters(){
+	  return ScreenBuilderState1<SubscribeTo<>>{std::make_tuple()};
+	};
+
+      };
 
     } // screen
   }//widgets
-  
+
+  // window
   namespace widgets{
 
     namespace window {
@@ -705,9 +694,9 @@ namespace fluxpp{
       class WindowReturnContainer {
 	using widgets_vector_t = std::vector<std::unique_ptr<BaseWidget>> ;
       public:
-      WindowReturnContainer(WindowSettings settings , widgets_vector_t widgets)
-	: settings_(settings),
-	  widgets_(std::move(widgets)) {};
+	WindowReturnContainer(WindowSettings settings , widgets_vector_t widgets)
+	  : settings_(settings),
+	    widgets_(std::move(widgets)) {};
 	WindowSettings extract_data(){return std::move(this->settings_);};
 	widgets_vector_t& widgets(){return this->widgets_;};
 	widgets_vector_t extract_widgets(){
@@ -715,10 +704,10 @@ namespace fluxpp{
 	  std::swap(this->widgets_,empty);
 	  return empty;
 	};
-    private:
-      widgets_vector_t widgets_;
-      WindowSettings settings_ ;
-    };
+      private:
+	widgets_vector_t widgets_;
+	WindowSettings settings_ ;
+      };
       
       
       namespace detail{
@@ -762,18 +751,18 @@ namespace fluxpp{
 	  ::template apply<std::tuple>;
      
 	using function_t = typename subscriptions_t
-	::template apply<to_function> ;   
+	  ::template apply<to_function> ;   
      
-      using listener_tuple_t = typename listened_for_t
-	::template map<to_event_handler>
-	::template apply<std::tuple>;
-    public:
-      Window(filters_tuple_t filters,
-	     function_t render_function,
-	     listener_tuple_t listeners) :
-	filters_(std::move(filters)),
-	render_function_ (std::move(render_function)),
-	listeners_(std::move(listeners)){};
+	using listener_tuple_t = typename listened_for_t
+	  ::template map<to_event_handler>
+	  ::template apply<std::tuple>;
+      public:
+	Window(filters_tuple_t filters,
+	       function_t render_function,
+	       listener_tuple_t listeners) :
+	  filters_(std::move(filters)),
+	  render_function_ (std::move(render_function)),
+	  listeners_(std::move(listeners)){};
       
       	std::vector<const std::string*> get_subscriptions()const{
 	  return {};
@@ -789,142 +778,146 @@ namespace fluxpp{
 	      parent_uuid );
 	};
 
-    private:
-      filters_tuple_t filters_;
-      function_t render_function_;
-      listener_tuple_t listeners_;
-    };
+	void accept(visitors::DispatchVisitor& visitor){
+	  auto applicator = widgets::detail::DispatchVisitorApplicator{.visitor=&visitor }; 
+	  applicator.apply(this->listeners_);
+	};
+      private:
+	filters_tuple_t filters_;
+	function_t render_function_;
+	listener_tuple_t listeners_;
+      };
       
     
       struct WindowBuilder{
-    private:
-      template<class ...F>
-      using to_fn_ptr = WindowReturnContainer(*)(F... );
-     
-      template<class ...F>
-      using to_closure_maker = ClosureMaker<WindowReturnContainer, F...>;
-     
-      template<class ...F>
-      using to_function = Function<WindowReturnContainer, F...>;
-     
-      template <class T>
-      using to_event_handler = EventHandler<AppEvent,T>;
-    public:
-      // OK, normally a Builder returns itself. We do this a bit differently here as the builder also collects the types of its arguments.
-      // The builder has 4 main states.
-      //   state 0 (WindowBuilder) the sourrounding state
-      //   state 1 when Filters are set
-      //   state 2 when also the render function is set
-      //   state 2.5 when the subscribed to EventTypes are set
-      //   // state 3 when the event handler are set. we currently build directly.
-
-      template <class subscriptions_t, class listened_for_t>
-      struct WindowBuilderState2_5;
-
-      template < class subscriptions_t,  class ... listened_for_ts  >
-      struct WindowBuilderState2_5<subscriptions_t, ListenFor<listened_for_ts...>>{
       private:
-	using listened_for_t = ListenFor<listened_for_ts...>;
-       
-	using filters_tuple_t = typename subscriptions_t
-	  ::template map<Filter>
-	  ::template apply<std::tuple>;
-       
-	using function_t = typename subscriptions_t
-	  ::template apply<to_function> ;
+	template<class ...F>
+	using to_fn_ptr = WindowReturnContainer(*)(F... );
+     
+	template<class ...F>
+	using to_closure_maker = ClosureMaker<WindowReturnContainer, F...>;
+     
+	template<class ...F>
+	using to_function = Function<WindowReturnContainer, F...>;
+     
+	template <class T>
+	using to_event_handler = EventHandler<AppEvent,T>;
       public:
-	WindowBuilderState2_5(filters_tuple_t filters,
-			      function_t function)
-	  :filters(filters),
-	   render_function(std::move(function)){};
+	// OK, normally a Builder returns itself. We do this a bit differently here as the builder also collects the types of its arguments.
+	// The builder has 4 main states.
+	//   state 0 (WindowBuilder) the sourrounding state
+	//   state 1 when Filters are set
+	//   state 2 when also the render function is set
+	//   state 2.5 when the subscribed to EventTypes are set
+	//   // state 3 when the event handler are set. we currently build directly.
+
+	template <class subscriptions_t, class listened_for_t>
+	struct WindowBuilderState2_5;
+
+	template < class subscriptions_t,  class ... listened_for_ts  >
+	struct WindowBuilderState2_5<subscriptions_t, ListenFor<listened_for_ts...>>{
+	private:
+	  using listened_for_t = ListenFor<listened_for_ts...>;
        
-	template<class ...Arg_ts>
-	decltype(auto) build_with_event_handling_lambdas(Arg_ts...args){
+	  using filters_tuple_t = typename subscriptions_t
+	    ::template map<Filter>
+	    ::template apply<std::tuple>;
+       
+	  using function_t = typename subscriptions_t
+	    ::template apply<to_function> ;
+	public:
+	  WindowBuilderState2_5(filters_tuple_t filters,
+				function_t function)
+	    :filters(filters),
+	     render_function(std::move(function)){};
+       
+	  template<class ...Arg_ts>
+	  decltype(auto) build_with_event_handling_lambdas(Arg_ts...args){
 
-	  auto tpl =  std::make_tuple(EventHandler<AppEvent, listened_for_ts>(args ) ... );
+	    auto tpl =  std::make_tuple(EventHandler<AppEvent, listened_for_ts>(args ) ... );
 
-	  return Window<subscriptions_t, listened_for_t>(std::move(this->filters),
+	    return Window<subscriptions_t, listened_for_t>(std::move(this->filters),
 
-							 std::move(this->render_function),
-							 std::move(tpl)
-	  );
-	};
-	filters_tuple_t filters;
-	function_t render_function;
+							   std::move(this->render_function),
+							   std::move(tpl)
+	    );
+	  };
+	  filters_tuple_t filters;
+	  function_t render_function;
 
-      };
-
-      // sub_t is for a SubscribeTo<...> class
-      template <class sub_t>
-      struct WindowBuilderState2{
-      private:
-	using filters_tuple_t = typename sub_t
-	  ::template map<Filter>
-	  ::template apply<std::tuple>;
-	using function_t = typename sub_t
-	  ::template apply<to_function> ;
-      public:
-	WindowBuilderState2(filters_tuple_t filters,
-			    function_t function):
-	  filters(filters),
-	  render_function(std::move(function)){
 	};
 
-	decltype(auto) build_without_event_handlers(){
-	  return this->for_events<>().build_with_event_handling_lambdas();
-	}
-
-	template<class ...listened_for_ts>
-	decltype(auto) for_events(){
-	  using state2_5_builder_t = WindowBuilderState2_5<sub_t, ListenFor<listened_for_ts...>>; 
-	  return state2_5_builder_t(this->filters, std::move(this->render_function) );
-	};
-	
-	filters_tuple_t filters;
-	function_t render_function;
-      };
-
-      template <class sub_t>
-      struct WindowBuilderState1{
-	using filter_tuple_t = typename sub_t
-	  ::template map<Filter>::template apply<std::tuple>; 
-	template<class T>
-	decltype(auto) with_render_lambda(T fn){
-	  using fn_ptr_t  =  typename sub_t
-	    ::template apply< to_fn_ptr>;
-
-	  // casting to a function pointer to make sure it is a non capturing lambda
-	  fn_ptr_t fn_ptr = fn;
-	  using closure_maker_t = typename sub_t
-	    ::template apply<to_closure_maker>;
+	// sub_t is for a SubscribeTo<...> class
+	template <class sub_t>
+	struct WindowBuilderState2{
+	private:
+	  using filters_tuple_t = typename sub_t
+	    ::template map<Filter>
+	    ::template apply<std::tuple>;
 	  using function_t = typename sub_t
-	    ::template apply<to_function>;
-	 
-	  return WindowBuilderState2<sub_t>(
-	      this->filters,
-	      closure_maker_t::make(fn_ptr).as_fun()
-	  );
+	    ::template apply<to_function> ;
+	public:
+	  WindowBuilderState2(filters_tuple_t filters,
+			      function_t function):
+	    filters(filters),
+	    render_function(std::move(function)){
+	  };
+
+	  decltype(auto) build_without_event_handlers(){
+	    return this->for_events<>().build_with_event_handling_lambdas();
+	  }
+
+	  template<class ...listened_for_ts>
+	  decltype(auto) for_events(){
+	    using state2_5_builder_t = WindowBuilderState2_5<sub_t, ListenFor<listened_for_ts...>>; 
+	    return state2_5_builder_t(this->filters, std::move(this->render_function) );
+	  };
+	
+	  filters_tuple_t filters;
+	  function_t render_function;
 	};
 
-        filter_tuple_t filters;
-      };
+	template <class sub_t>
+	struct WindowBuilderState1{
+	  using filter_tuple_t = typename sub_t
+	    ::template map<Filter>::template apply<std::tuple>; 
+	  template<class T>
+	  decltype(auto) with_render_lambda(T fn){
+	    using fn_ptr_t  =  typename sub_t
+	      ::template apply< to_fn_ptr>;
 
-      template<class ... subscription_ts>
-      decltype(auto) with_filters(Filter<subscription_ts>... filters){
-	using follow_t = WindowBuilderState1<SubscribeTo<subscription_ts...> >; 
-	return follow_t{std::make_tuple(filters...)};
-      };
+	    // casting to a function pointer to make sure it is a non capturing lambda
+	    fn_ptr_t fn_ptr = fn;
+	    using closure_maker_t = typename sub_t
+	      ::template apply<to_closure_maker>;
+	    using function_t = typename sub_t
+	      ::template apply<to_function>;
+	 
+	    return WindowBuilderState2<sub_t>(
+		this->filters,
+		closure_maker_t::make(fn_ptr).as_fun()
+	    );
+	  };
 
-      /*
-      decltype(auto) without_filters(){
-	return this->with_filters();
-      };
-      */
-      WindowBuilderState1<SubscribeTo<>> without_filters(){
-	return WindowBuilderState1<SubscribeTo<>>{std::make_tuple()};
-      };
+	  filter_tuple_t filters;
+	};
 
-    };
+	template<class ... subscription_ts>
+	decltype(auto) with_filters(Filter<subscription_ts>... filters){
+	  using follow_t = WindowBuilderState1<SubscribeTo<subscription_ts...> >; 
+	  return follow_t{std::make_tuple(filters...)};
+	};
+
+	/*
+	  decltype(auto) without_filters(){
+	  return this->with_filters();
+	  };
+	*/
+	WindowBuilderState1<SubscribeTo<>> without_filters(){
+	  return WindowBuilderState1<SubscribeTo<>>{std::make_tuple()};
+	};
+
+      };
 
       
     }// window
@@ -962,26 +955,26 @@ namespace fluxpp{
 	template<class ...Arg_ts>
 	struct ApplicationReturnContainerMaker;
 	
-      template<class ...window_ts>
-      struct ApplicationReturnContainerMaker<ApplicationSettings, window_ts... >{
-	static ApplicationReturnContainer make( window_ts...screens ){
+	template<class ...window_ts>
+	struct ApplicationReturnContainerMaker<ApplicationSettings, window_ts... >{
+	  static ApplicationReturnContainer make( window_ts...screens ){
 	  
-	  std::vector<screen::ScreenBase*> vec1{
-	    static_cast<screen::ScreenBase*>(new window_ts(std::move(screens)))...
-	      };
+	    std::vector<screen::ScreenBase*> vec1{
+	      static_cast<screen::ScreenBase*>(new window_ts(std::move(screens)))...
+		};
 	  
-	  return ApplicationReturnContainer(
-	      ApplicationSettings{},std::vector<std::unique_ptr<screen::ScreenBase>>(vec1.cbegin(),vec1.cend())
-	  );
-	}
-      };
-    }//detail
+	    return ApplicationReturnContainer(
+		ApplicationSettings{},std::vector<std::unique_ptr<screen::ScreenBase>>(vec1.cbegin(),vec1.cend())
+	    );
+	  }
+	};
+      }//detail
     
       template <class ...Arg_ts>
       ApplicationReturnContainer make_application_return_container(  Arg_ts... args){
        
-      return detail::ApplicationReturnContainerMaker<ApplicationSettings,Arg_ts...>::make( std::move(args)...);
-    };
+	return detail::ApplicationReturnContainerMaker<ApplicationSettings,Arg_ts...>::make( std::move(args)...);
+      };
     }// application
     
     namespace application{
@@ -1018,6 +1011,11 @@ namespace fluxpp{
 	}
 	void accept(RenderVisitor& visitor ){
 	  visitor.render_widget(this->filters_, this->render_function_ );
+	};
+	
+	void accept(visitors::DispatchVisitor& visitor){
+	  auto applicator = widgets::detail::DispatchVisitorApplicator{.visitor=&visitor }; 
+	  applicator.apply(this->listeners_);
 	};
 
       private:
@@ -1065,7 +1063,7 @@ namespace fluxpp{
 	    ::template apply<to_function> ;
 	public:
 	  ApplicationBuilderState2_5(filters_tuple_t filters,
-				function_t function)
+				     function_t function)
 	    :filters(filters),
 	     render_function(std::move(function)){};
        
@@ -1076,8 +1074,8 @@ namespace fluxpp{
 
 	    return Application<subscriptions_t, listened_for_t>(std::move(this->filters),
 
-							   std::move(this->render_function),
-							   std::move(tpl)
+								std::move(this->render_function),
+								std::move(tpl)
 	    );
 	  };
 	  filters_tuple_t filters;
@@ -1096,7 +1094,7 @@ namespace fluxpp{
 	    ::template apply<to_function> ;
 	public:
 	  ApplicationBuilderState2(filters_tuple_t filters,
-			      function_t function):
+				   function_t function):
 	    filters(filters),
 	    render_function(std::move(function)){
 	  };

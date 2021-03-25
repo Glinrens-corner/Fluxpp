@@ -1,6 +1,6 @@
 #ifndef FLUXPP_APP_EVENT_HPP
 #define FLUXPP_APP_EVENT_HPP
-
+#include <string>
 
 namespace fluxpp{
   // AppEvent

@@ -5,8 +5,9 @@ namespace fluxpp{
   namespace visitors{
     class RenderVisitor;
     class CommandVisitor;
+    class DispatchVisitor;
   } // visitor
-};
+}// fluxpp
 
 
 

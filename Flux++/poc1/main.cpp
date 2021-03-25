@@ -45,11 +45,15 @@ Widget<SubscribeTo<bool>,
 	};
     })
   .for_events<ButtonPressEvent, ButtonReleaseEvent>()
-  .build_with_event_handling_lambdas([](ButtonPressEvent event)->AppEventContainer
-				 {return AppEvent("state/button");},
+  .build_with_event_handling_lambdas([](const ButtonPressEvent& event)->AppEventContainer
+				 {
+				   std::cout<< "button pressed" << std::endl;
+				   return AppEvent("state/button");},
 
-				 [] (ButtonReleaseEvent event )->AppEventContainer
-				 {return AppEvent("state/button");}
+				 [] (const ButtonReleaseEvent& event )->AppEventContainer
+				 {
+				   
+				   return AppEvent("state/button");}
 				 );
 
 Window<SubscribeTo<>, ListenFor<>> mywindow =WindowBuilder{}

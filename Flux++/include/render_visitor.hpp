@@ -23,10 +23,8 @@ namespace fluxpp{
 
     struct RenderIFCHolder{
       state::SynchronousStateInterface* state_sifc;
-      //      backend::AsynchronousBackendInterfaceBase * backend_aifc;
       RenderTreeData * old_tree;
       RenderTreeData * new_tree;
-      //      std::vector<backend::DrawCommandBase>* commands;
     };
     
     class RenderVisitor{

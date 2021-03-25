@@ -71,6 +71,7 @@ namespace fluxpp {
     
     std::vector<std::unique_ptr<backend::DrawCommandBase>> generate_commands(const RenderTreeData&);
   public:
+    void dispatch_event(events::ButtonPressEvent event );
     void lock(){};
     void unlock(){};
   private:
@@ -247,8 +248,83 @@ namespace fluxpp {
     std::swap(this->tree_, new_tree);
     return commands;
   };
+  void SynchronousRenderTreeInterface::dispatch_event(events::ButtonPressEvent event){
+    this->impl->dispatch_event(event);
+  };
+
+  namespace {
+    void apply_dispatch_visitor(
+	visitors::DispatchVisitor& visitor,
+	RenderTreeData& tree,
+	WidgetNode& node
+    ){
+      
+      visitor.visit(node.widget());
+      for (auto widget_uuid : node.children() ){
+	apply_dispatch_visitor(
+	    visitor,
+	    tree,
+	    tree.widget_at(widget_uuid) );
+      };
+    };
+
+    void apply_dispatch_visitor(
+	visitors::DispatchVisitor& visitor,
+	RenderTreeData& tree,
+        WindowNode& node
+    ){
+      
+      visitor.visit(node.widget());
+      for (auto widget_uuid : node.children() ){
+	apply_dispatch_visitor(
+	    visitor,
+	    tree,
+	    tree.widget_at(widget_uuid) );
+      };
+    };
+
+    
+    void apply_dispatch_visitor(
+	visitors::DispatchVisitor& visitor,
+	RenderTreeData& tree,
+	ScreenNode& node
+    ){
+      
+      visitor.visit(node.widget());
+      for (auto window_uuid : node.children() ){
+	apply_dispatch_visitor(
+	    visitor,
+	    tree,
+	    tree.window_at(window_uuid) );
+      };
+    };
+    
+    void apply_dispatch_visitor(
+	visitors::DispatchVisitor& visitor,
+	RenderTreeData& tree,
+	ApplicationNode& node
+    ){
+      visitor.visit(node.widget());
+      for (auto screen_uuid : node.children() ){
+	apply_dispatch_visitor(
+	    visitor,
+	    tree,
+	    tree.screen_at(screen_uuid) );
+      };
+    };
+  } // ""
+  void RenderTreeImpl::dispatch_event(events::ButtonPressEvent event) {
+    visitors::DispatchVisitor dispatch_visitor {&event, this->app_queue_};
+    apply_dispatch_visitor(
+	dispatch_visitor,
+	this->tree_,
+	this->tree_.root()
+    );
+  };
   
-  std::vector<std::unique_ptr<backend::DrawCommandBase>>  RenderTreeImpl::generate_commands( const RenderTreeData& tree){
+  std::vector<std::unique_ptr<backend::DrawCommandBase>>
+  
+    RenderTreeImpl::generate_commands( const RenderTreeData& tree){
     auto backend_aifc =  this->backend_->get_asynchronous_interface();
     auto& screen_uuids = tree.root().children();
     assert(screen_uuids.size() == 1);
