@@ -1,14 +1,16 @@
 # Fluxpp
-An c++ gui framework inspired by Facebooks Flux architecture and React.js and Redux
+A c++ ui framework inspired by Facebooks Flux architecture as well as React.js and Redux
+
+It focuses on composability, debugability and dynamizism. 
+Perfomance is a secondary concern.
+
+## General Idea and Architecture
+
+The general idea is that a widget (normally) represents a rectangular area of the screen. 
+Internally it is programmed as a function that 'returns' all the widgets which subdive the area of the parent.
+The widget can also subscribe to a piece of state ( a slice) and set event handler for gui_events.
+The event_handler translates gui_events into application events which are dispatched to a state slice.
+The state slice is then updated through a user-supplied reducer function and the rerenders all widgets which were subscribed to this slice.
+
 ![]( Fluxpp_architecture1.svg)
-
-The Fluxpp framework has two user configurable parts: The State and the Widget Tree.
-
-## The Widget Tree
-
-In Fluxpp a Widget generally represents a rectangular area of screen space in which it can locate subwidgets.
-
-Any user defined Widget consists of three main parts:
-1. The Render function. This is a pure function which takes the state the widget depends upon and returns sub widgets and their positons within the current widget.
-1. An array of EventHandlers translating any Gui-Events into app-events and deciding if the event should propagate to subwidgets.
 
