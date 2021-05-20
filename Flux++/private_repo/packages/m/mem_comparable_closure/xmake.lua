@@ -1,7 +1,0 @@
-package("mem_comparable_closure")
-    set_description("for closures that can be compared")
-    set_urls("https://github.com/Glinrens-corner/mem_comparable_closure.git")
-    add_versions("0.0.9", "e68f012247cb68c000431347c4edbbf1af2eda82")
-    on_install(function(package)
-        os.cp("mem_comparable_closure/include/*", package:installdir("include"))
-    end)
