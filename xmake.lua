@@ -1,0 +1,2 @@
+
+includes("fluxpp/xmake.lua")
