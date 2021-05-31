@@ -2,11 +2,15 @@
 #define FLUXPP_EVENT_SYSTEM_HPP
 #include <map>
 #include <string>
+#include <memory>
 #include <string_view>
 #include <optional>
 #include <functional>
 #include <cassert>
+#include <variant>
 #include <mutex>
+#include <list>
+#include <iostream>
 #include "id.hpp"
 
 
@@ -166,11 +170,219 @@ namespace fluxpp {
 
   } // event_system
 
+  namespace event_system{
+    class PathSegment{
+
+      // TODO make it private:
+    public:
+      std::variant<
+      fluxpp::id::Id<StringIdTag>,
+      fluxpp::id::id_base_type> content_;
+    };
+    
+    template<class... Ts> struct overload : Ts... { using Ts::operator()...; };
+    template<class... Ts> overload(Ts...) -> overload<Ts...>;
+
+    class Path{
+      // TODO make it private:
+    public:
+      std::vector<PathSegment> content_;
+
+    };
+
+    
+  } // event_system
+  namespace event_system{
+    class EventDispatchVisitor{
+    public:
+      template< class event_t>
+      void dispatch_generic(event_t & event) {}; 
+
+      template< class event_t>
+      void dispatch_2DPlane(event_t & event) {}; 
+
+    };
+    
+    class AbstractEvent{
+    public:
+      virtual void accept(EventDispatchVisitor& visitor) = 0;
+    };
+
+    template <class data_t>
+    class DataEvent: public AbstractEvent{
+    public:
+      DataEvent(data_t data)
+        :content_(std::move(data)){};
+      void accept(EventDispatchVisitor& visitor){
+        visitor.dispatch_generic(*this);
+      };
+    public:
+      data_t content_ {};
+    };
+    class EventSystem;
+    class Port;
+
+    namespace detail{
+
+      // void function does nothing.
+      inline void void_function(AbstractEvent *){};
+
+      class PortalAllocator{
+      private:
+        static PortalAllocator create(){
+          return PortalAllocator();
+        };
+      public:
+        PortalAllocator(){};
+
+        template <class to_allocate_t>
+        void* allocate(){
+          return std::malloc(sizeof(to_allocate_t));
+        };
+        
+        void deallocate( void * pointer){
+          std::free(pointer);
+        };
+      };
+
+
+    };
+    
+    class Portal{
+      friend class Port;
+    private:
+      static constexpr bool sequential_mode{ true};
+    private:
+      template<class T>
+      class Deallocator{
+      public:
+        Deallocator(detail::PortalAllocator*allocator )
+          :allocator_(allocator){};
+        
+        void operator()(T *to_deallocate){
+          to_deallocate->~T();
+          this->allocator_->deallocate(to_deallocate);
+        };
+ 
+      private:
+        detail::PortalAllocator* allocator_;
+      };
+    private:
+      void dispatch_events_core();
+
+    public:
+      template<class event_t>
+      void dispatch_event(Path path, event_t  event);
+
+      void set_dispatcher(std::function<void( AbstractEvent*)> dispatcher ){
+        this->dispatcher_ = dispatcher;
+      };
+    public:
+      detail::PortalAllocator allocator_{};
+      std::mutex lock{};
+      std::list<
+        std::variant<
+          std::unique_ptr<AbstractEvent>,
+          std::unique_ptr<AbstractEvent,Deallocator<AbstractEvent>>
+    > > event_queue_ {};
+      std::function<void(AbstractEvent*)> dispatcher_{detail::void_function};
+    };
+
+    template<class event_t>
+    void Portal::dispatch_event(Path path, event_t  event){
+      if (sequential_mode){
+        this->event_queue_.push_front(
+            std::unique_ptr<
+            AbstractEvent,
+            Deallocator<AbstractEvent>
+            >(
+                new ( this->allocator_.allocate<event_t>() ) event_t(std::move(event)),
+                Deallocator<AbstractEvent>(&this->allocator_)
+            ));
+        
+        this->dispatch_events_core();
+      } else {
+        assert(false);
+      };
+    };
+    
+    template<>
+    inline void Portal::dispatch_event<std::unique_ptr<AbstractEvent>>(
+        Path path,
+        std::unique_ptr<AbstractEvent> event){
+      if (sequential_mode){
+        this->event_queue_.push_front(std::move(event));
+        this->dispatch_events_core();
+      } else {
+        assert(false);
+      };
+    };
+
+    
+    class EventSystem{
+    private:
+      using string_id_t = fluxpp::id::Id<StringIdTag>; 
+    public:
+      using string_id_type = string_id_t;
+      EventSystem(std::map<string_id_t, Portal> portals,
+                  LocalStringMapper* string_mapper)
+        :portals_(std::move(portals))
+        ,string_mapper_(string_mapper){};
+    public:
+
+      Port get_port( );
+  
+      Portal& get_portal(const PathSegment& segment);
+
+      static EventSystem  create(std::vector<string_id_t> portal_ids , LocalStringMapper* string_mapper){
+        std::map<string_id_t, Portal > portals{};
+        for ( string_id_t id : portal_ids){
+          auto [_, inserted ] =portals.try_emplace(id);
+          if (not inserted){
+            throw "douplicate portal Id";
+          };
+        };
+        return EventSystem( std::move(portals), string_mapper );
+      };
+
+    private:
+      std::map<string_id_t,Portal > portals_;
+      LocalStringMapper* string_mapper_;
+    };
+
+    class Port {
+    public:
+      Port(EventSystem* event_system)
+        :event_system_(event_system){};
+
+      template<class event_t>
+      void dispatch_event(Path target_path,event_t event);
+      
+
+    private:
+      EventSystem* event_system_;
+    };
+
+    template <class event_t>
+    void Port::dispatch_event(Path target_path, event_t event){
+      static_assert(std::is_base_of<AbstractEvent, event_t>::value,"an event must be derived from AbstractEvent" ); 
+        Portal& dispatch_portal = this
+          ->event_system_
+          ->get_portal(target_path.content_[0]);
+        dispatch_portal
+                      .dispatch_event(target_path, event);      
+    };
+    
+    template<>
+    inline void Port::dispatch_event<std::unique_ptr<AbstractEvent>>(Path target_path, std::unique_ptr<AbstractEvent> event){
+      Portal& dispatch_portal = this
+        ->event_system_
+        ->get_portal(target_path.content_[0]);
+      dispatch_portal
+        .dispatch_event(target_path, std::move(event));
+    };
+
+  }// event_system
 } // fluxpp
-
-
-
-
-
 
 #endif // FLUXPP_EVENT_SYSTEM_HPP

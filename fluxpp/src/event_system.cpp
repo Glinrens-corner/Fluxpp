@@ -51,7 +51,7 @@ namespace fluxpp{
       this->is_sealed_ = true;
       return LocalStringMapper(this );
     };
-
+    
     LocalStringMapperInterface LocalStringMapper::get_interface(){
       this->lock();
       return LocalStringMapperInterface(this);
@@ -132,5 +132,39 @@ namespace fluxpp{
             new_id});
       return new_id;
     };
+    
+  }// event_system
+
+  namespace event_system {
+    namespace detail{
+      struct Dispatcher{
+        void operator()( std::unique_ptr<AbstractEvent> & event){ this->portal_->dispatcher_( event.get());};
+        void operator()( std::unique_ptr<AbstractEvent,Portal::Deallocator<AbstractEvent>> & event){ this->portal_->dispatcher_( event.get());}
+        Portal* portal_;
+      };
+    }// detail
+    void Portal::dispatch_events_core(){
+      while(this->event_queue_.size() >0){
+        auto& event= this->event_queue_.back();
+        std::visit(detail::Dispatcher{this },event);
+        this->event_queue_.pop_back();
+
+      };
+    };
+
+    Port EventSystem::get_port(){
+      return Port(this);
+    };
+
+    Portal& EventSystem::get_portal(const PathSegment& segment) {
+      using string_id_type = fluxpp::id::Id<StringIdTag>;
+      const string_id_type* id = std::get_if<string_id_type>(&segment.content_ );
+      if (id){
+        return this->portals_.at(*id);
+      } else {
+        throw "Error all Portals need to be named";
+      };
+    };
+    
   }// event_system
 }// fluxpp

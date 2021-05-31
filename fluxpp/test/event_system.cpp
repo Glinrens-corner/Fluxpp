@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 #include "event_system.hpp"
 
+
 namespace {
   using string_id_t = fluxpp::id::Id<fluxpp::event_system::StringIdTag>;
   using fluxpp::event_system::GlobalStringMapper;
@@ -10,7 +11,12 @@ namespace {
     .map_string("sadfa");
   string_id_t orf_id = GlobalStringMapper::get_instance()
     .map_string("orf 22");
-
+  string_id_t state_id = GlobalStringMapper::get_instance()
+    .map_string("state");
+  string_id_t app_id = GlobalStringMapper::get_instance()
+    .map_string("app");
+  string_id_t backend_id = GlobalStringMapper::get_instance()
+    .map_string("backend");
 }//
 
 
@@ -30,7 +36,7 @@ TEST_CASE("global_mapper"){
     };
     SUBCASE("sealed string_mapping"){
       REQUIRE(GlobalStringMapper::get_instance().is_sealed());
-      // a sealed GlobalStringMapper cannot
+      // a sealed GlobalStringMapper cannot map new strings
       CHECK_THROWS(GlobalStringMapper::get_instance()
                    .map_string("orf 22"));
     };
@@ -88,4 +94,32 @@ TEST_CASE("local_mapper"){
       ->get_interface();
     CHECK_FALSE(ifc.id_by_string("somethign").has_value());
   };
+};
+
+
+TEST_CASE("Portal"){
+  using namespace fluxpp::event_system;
+  auto portal = Portal{};
+  
+  
+};
+
+
+TEST_CASE("EventSystem"){
+  using namespace fluxpp::event_system;
+  auto local_mapper = GlobalStringMapper::get_instance()
+    .create_local_mapper();
+  std::vector<fluxpp::id::Id<StringIdTag>> ids{app_id, backend_id, state_id };
+  EventSystem event_system = EventSystem::create(std::move(ids), &local_mapper);
+  auto&  app_portal =  event_system.get_portal({app_id} );
+  bool was_called = false;
+  app_portal.set_dispatcher([&was_called](fluxpp::event_system::AbstractEvent * event){
+      CHECK( static_cast<bool>(dynamic_cast<fluxpp::event_system::DataEvent<int>*>(event) ));
+      was_called = true;
+    });
+  Port port = event_system.get_port();
+  port.dispatch_event(
+      fluxpp::event_system::Path{{{app_id}, {orf_id}}} ,
+      DataEvent<int>{1});
+  CHECK(was_called);
 };
