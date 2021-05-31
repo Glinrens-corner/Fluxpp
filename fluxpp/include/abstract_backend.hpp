@@ -6,18 +6,18 @@
 
 namespace fluxpp {
   namespace backend {
-    using ::fluxpp::id::id_t;
+    struct InstanceIdTag;
+    using InstanceId = fluxpp::id::Id<InstanceIdTag>;
     class AbstractDrawCommand{
       
-
     };
     
     class AbstractDrawCommandFactory {
     public:
       constexpr static fluxpp::util::InterfaceType interface_type = fluxpp::util::InterfaceType::Committing;
       virtual std::unique_ptr<AbstractDrawCommand> get_draw_color_command(
-          id_t id,
-          id_t parent_id,
+          InstanceId id,
+          InstanceId parent_id,
           fluxpp::util::Color color,
           fluxpp::util::Extend2D size  )=0;
       

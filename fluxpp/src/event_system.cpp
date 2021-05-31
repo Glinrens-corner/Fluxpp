@@ -29,6 +29,12 @@ namespace fluxpp{
       return new_id;
     };
 
+    GlobalStringMapper & GlobalStringMapper::get_instance(){
+      static GlobalStringMapper instance;
+      return instance;
+    };
+    
+    
     std::optional<GlobalStringMapper::id_t> GlobalStringMapper::id_by_string(const std::string&name)const{
       auto it =  this->id_by_string_.find(name);
       if ( it == this->id_by_string_.end()){

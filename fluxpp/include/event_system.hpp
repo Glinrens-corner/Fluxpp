@@ -10,7 +10,6 @@
 #include <variant>
 #include <mutex>
 #include <list>
-#include <iostream>
 #include "id.hpp"
 
 
@@ -31,16 +30,15 @@ namespace fluxpp {
       GlobalStringMapper(const GlobalStringMapper &) = delete;
       void operator=(const GlobalStringMapper&) = delete; 
     public:
-      static GlobalStringMapper& get_instance(){
-        static GlobalStringMapper instance;
-        return instance;
-      };
+      static  GlobalStringMapper& get_instance();
       
       LocalStringMapper create_local_mapper( )const;
       
     public:
       id_t map_string(std::string name);
+      
       bool is_sealed()const{return this->is_sealed_;};
+      
     private: // only the local mapper has access to these.
       std::optional<id_t> id_by_string(const std::string& name)const;
       std::optional<std::reference_wrapper<const std::string>> string_by_id(id_t id )const;
