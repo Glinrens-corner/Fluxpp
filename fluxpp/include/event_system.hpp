@@ -332,7 +332,9 @@ namespace fluxpp {
   
       Portal& get_portal(const PathSegment& segment);
 
-      static EventSystem  create(std::vector<string_id_t> portal_ids , LocalStringMapper* string_mapper){
+      static EventSystem  create(
+          std::vector<string_id_t> portal_ids ,
+          LocalStringMapper* string_mapper){
         std::map<string_id_t, Portal > portals{};
         for ( string_id_t id : portal_ids){
           auto [_, inserted ] =portals.try_emplace(id);

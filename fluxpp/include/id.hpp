@@ -14,6 +14,8 @@ namespace fluxpp{
     struct Id{
     private:
       friend class SequentialIdGenerator<tag_t>;
+    public:
+      using tag_type = tag_t;
     private:
       Id(id_base_type value ):value_(value){}
     public:
