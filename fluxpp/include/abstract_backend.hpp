@@ -7,8 +7,9 @@
 
 namespace fluxpp {
   namespace backend {
-    struct InstanceIdTag;
-    using InstanceId = fluxpp::id::Id<InstanceIdTag>;
+    struct NodeIdTag;
+    using NodeId = fluxpp::id::Id<NodeIdTag>;
+    using tree_position_t = std::pair<NodeId,std::size_t>;
 
     class AbstractDrawCommand{
     public:
@@ -16,15 +17,56 @@ namespace fluxpp {
     };
     
     inline AbstractDrawCommand::~AbstractDrawCommand(){};
+
+    struct WindowSettings{
+      fluxpp::util::Position2D position;
+      fluxpp::util::Extend2D size;
+    };
     
     class AbstractDrawCommandFactory {
+    private:
+      // just to avoid to always type std 
+      template<class T1, class T2>
+      using pair = std::pair<T1,T2>;
     public:
       constexpr static fluxpp::util::InterfaceType interface_type = fluxpp::util::InterfaceType::Committing;
-      virtual AbstractDrawCommand* get_draw_color_command(
-          InstanceId id,
-          InstanceId parent_id,
+      
+      virtual pair<AbstractDrawCommand*, fluxpp::util::Extend2D  >
+      get_draw_color_command(
+          NodeId id,
+          tree_position_t tree_position,
           fluxpp::util::Color color,
+          fluxpp::util::Position2D position,
           fluxpp::util::Extend2D size  )=0;
+
+      virtual pair<AbstractDrawCommand*, fluxpp::util::None > get_set_root_command(
+          NodeId id
+      ) =0;
+      
+      virtual pair<AbstractDrawCommand*, WindowSettings> get_add_window_command(
+          NodeId id,
+          tree_position_t tree_position,
+          fluxpp::util::Position2D position,
+          fluxpp::util::Extend2D size
+      ) =0;
+      
+      virtual pair<AbstractDrawCommand*, fluxpp::util::None >
+      get_move_in_tree_command(
+          NodeId id,
+          tree_position_t tree_position
+          )=0;
+
+      virtual pair<AbstractDrawCommand*, fluxpp::util::None>
+      get_create_node_command(
+          NodeId id,
+          tree_position_t tree_position)=0;
+
+      virtual pair<AbstractDrawCommand*, void*>
+      get_create_any_command(
+          NodeId id,
+          tree_position_t tree_position,
+          const std::string& name,
+          void * data) = 0;    
     };
 
     class AbstractDrawCommandDispatcher{

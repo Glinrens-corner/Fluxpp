@@ -8,6 +8,10 @@
 // small  
 namespace fluxpp {
   namespace util {
+    enum class None{
+      none
+    };
+    
     enum class InterfaceType {
       Asynchronous, 
       Locked,
@@ -120,6 +124,16 @@ namespace fluxpp {
     private:
       std::optional<uint64_t> length_{};
     };
+
+    inline bool operator==(const Length& left, const Length& right){
+      if ( (not left.is_defined() ) and (not right.is_defined())) return true;
+      if ( (not left.is_defined() ) xor (not right.is_defined())) return false;
+      return left.value() == right.value();
+    };
+    
+    inline bool operator!=(const Length& left, const Length& right){
+      return not (left == right);
+    };
     
     struct Extend2D {
     public:
@@ -129,12 +143,47 @@ namespace fluxpp {
       Extend2D() {};
 
       Length width()const{ return this->width_;};
+      
       Length height()const{ return this->height_;};
       
     private:
       Length width_{};
       Length height_{};
     };
+
+    inline bool operator==(const Extend2D& left, const Extend2D& right){
+      return left.width() == right.width()
+        and left.height() == right.height();
+    };
+    
+    inline bool operator!=(const Extend2D& left, const Extend2D& right){
+      return not (left == right);
+    };
+    
+    class Position2D{
+    public:
+      Position2D(uint64_t x,uint64_t y)
+        :x_(x),y_(y){};
+      Position2D(){};
+
+      uint64_t x()const{return this->x_;};
+
+      uint64_t y()const{return this->y_;};
+      
+    private:
+      uint64_t x_{}; 
+      uint64_t y_{}; 
+    };
+
+    inline bool operator==(const Position2D& left, const Position2D& right){
+      return left.x() == right.x()
+        and left.y() == right.y();
+    };
+    
+    inline bool operator!=(const Position2D& left, const Position2D& right){
+      return not (left == right);
+    };
+    
   }// util
 }//fluxpp
 
