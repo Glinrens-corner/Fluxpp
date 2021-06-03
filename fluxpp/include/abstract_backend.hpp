@@ -9,7 +9,11 @@ namespace fluxpp {
   namespace backend {
     struct NodeIdTag;
     using NodeId = fluxpp::id::Id<NodeIdTag>;
-    using tree_position_t = std::pair<NodeId,std::size_t>;
+    struct TreePosition {
+      NodeId parent;
+      std::size_t position;
+    };
+    using tree_position_t = TreePosition;
 
     class AbstractDrawCommand{
     public:
