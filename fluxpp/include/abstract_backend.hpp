@@ -17,8 +17,9 @@ namespace fluxpp {
       std::size_t position;
     };
 
-    using Position2D =  fluxpp::util::Position2D;
-
+    using  fluxpp::util::Position2D;
+    using fluxpp::util::Extend2D;
+    
     struct RenderHints  {
     };
     
@@ -62,9 +63,10 @@ namespace fluxpp {
           NodeId id,
           TreePosition tree_position,
           Position2D position,
+          Extend2D size,
           RenderHints render_hints,
-          fluxpp::util::Color color,
-          fluxpp::util::Extend2D size  )=0;
+          fluxpp::util::Color color
+      )=0;
 
       // get a SetRootCommand...
       // the command to set a node as root for this backend 
@@ -78,8 +80,8 @@ namespace fluxpp {
           NodeId id,
           TreePosition tree_hint,
           Position2D position_hint,
-          RenderHints render_hints,
-          fluxpp::util::Extend2D size
+          Extend2D size,
+          RenderHints render_hints
       ) =0;
       
       // Command to change the position of a node in the render tree.
@@ -96,6 +98,7 @@ namespace fluxpp {
           NodeId id,
           TreePosition tree,
           Position2D position,
+          Extend2D render_window,
           RenderHints render_hints
       )=0;
       

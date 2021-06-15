@@ -178,8 +178,6 @@ namespace fluxpp {
       fluxpp::id::id_base_type> content_;
     };
     
-    template<class... Ts> struct overload : Ts... { using Ts::operator()...; };
-    template<class... Ts> overload(Ts...) -> overload<Ts...>;
 
     class Path{
       // TODO make it private:
