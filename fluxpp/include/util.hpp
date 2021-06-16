@@ -88,7 +88,7 @@ namespace fluxpp {
       Length(uint64_t length): length_(length){};
 
       bool is_defined( )const{return this->length_.has_value();};
-      uint8_t value()const{return this->length_.value();};
+      uint64_t value()const{return this->length_.value();};
 
       template <class function_t >
       void invoke_if_defined(function_t function )const{
@@ -169,7 +169,7 @@ namespace fluxpp {
       uint64_t x()const{return this->x_;};
 
       uint64_t y()const{return this->y_;};
-      
+      Position2D offset_by(Position2D offset)const { return Position2D{ this->x_+offset.x(), this->y_+offset.y()};  };
     private:
       uint64_t x_{}; 
       uint64_t y_{}; 

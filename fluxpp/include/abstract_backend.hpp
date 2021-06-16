@@ -81,6 +81,7 @@ namespace fluxpp {
           TreePosition tree_hint,
           Position2D position_hint,
           Extend2D size,
+          fluxpp::util::Color background_color,
           RenderHints render_hints
       ) =0;
       
@@ -110,7 +111,7 @@ namespace fluxpp {
           const std::string& name,
           void * data) = 0;
     };
-
+ 
     class AbstractDrawCommandDispatcher{
     public:
       virtual void dispatch_commands(
