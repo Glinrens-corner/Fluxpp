@@ -1,5 +1,7 @@
 
-
+add_requires("fmt")
+add_requires("range-v3")
+add_requires("transparent_closure")
 
 
 add_requires("doctest")
@@ -12,7 +14,10 @@ target("fluxpp_components")
     set_optimize("debug")
     set_symbols("debug")
     set_warnings("allextra")
-    add_packages("transparent_closure")
+    add_packages("transparent_closure",
+                 "fmt",
+                 "range-v3"
+    )
 
 target("fluxpp_test")
     set_kind("binary")
@@ -21,6 +26,9 @@ target("fluxpp_test")
     add_deps("fluxpp_components")
     add_files("test/*.cpp")
     add_includedirs("include")
-    add_packages("doctest")
+    add_packages("doctest",
+                 "transparent_closure",
+                 "fmt",
+                 "range-v3")
     set_optimize("debug")
     set_symbols("debug")

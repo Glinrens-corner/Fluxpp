@@ -111,7 +111,8 @@ namespace fluxpp {
           const std::string& name,
           void * data) = 0;
     };
- 
+
+
     class AbstractDrawCommandDispatcher{
     public:
       virtual void dispatch_commands(
@@ -136,4 +137,4 @@ namespace fluxpp {
 
 
 
-#endif FLUXPP_ABSTRACT_BACKEND_HPP
+#endif// FLUXPP_ABSTRACT_BACKEND_HPP

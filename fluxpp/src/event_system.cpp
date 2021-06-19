@@ -1,5 +1,6 @@
 #include "event_system.hpp"
 #include "error.hpp"
+#include "meta.hpp"
 #include <iostream>
 #include <cassert>
 
@@ -34,7 +35,6 @@ namespace fluxpp{
       return instance;
     };
     
-    
     std::optional<GlobalStringMapper::id_t> GlobalStringMapper::id_by_string(const std::string&name)const{
       auto it =  this->id_by_string_.find(name);
       if ( it == this->id_by_string_.end()){
@@ -56,6 +56,16 @@ namespace fluxpp{
     LocalStringMapper GlobalStringMapper::create_local_mapper() const{
       this->is_sealed_ = true;
       return LocalStringMapper(this );
+    };
+
+    LocalStringMapper::LocalStringMapper(
+        const GlobalStringMapper* global_mapper)
+      :global_mapper_(global_mapper)
+      ,generator_(global_mapper->generator_){
+      assert(this->global_mapper_->is_sealed());
+    };
+
+    LocalStringMapper::~LocalStringMapper(){
     };
     
     LocalStringMapperInterface LocalStringMapper::get_interface(){
@@ -89,6 +99,18 @@ namespace fluxpp{
       return this->mapper_->map_string( name);
     };
 
+    ConstLocalStringMapperInterface::~ConstLocalStringMapperInterface( ){
+      if(this->mapper_){
+        this->mapper_->unlock();
+      };
+    };
+    
+    LocalStringMapperInterface::~LocalStringMapperInterface( ){
+      if(this->mapper_){
+        this->mapper_->unlock();
+      };
+    };
+    
     auto  LocalStringMapper::id_by_string(const std::string& name)const->std::optional<id_t>{
       auto global_val = this->global_mapper_->id_by_string(name);
       if(global_val ){
@@ -138,24 +160,96 @@ namespace fluxpp{
             new_id});
       return new_id;
     };
+
+
     
   }// event_system
 
   namespace event_system {
-    namespace detail{
-      struct Dispatcher{
-        void operator()( std::unique_ptr<AbstractEvent> & event){ this->portal_->dispatcher_( event.get());};
-        void operator()( std::unique_ptr<AbstractEvent,Portal::Deallocator<AbstractEvent>> & event){ this->portal_->dispatcher_( event.get());}
-        Portal* portal_;
-      };
-    }// detail
-    void Portal::dispatch_events_core(){
-      while(this->event_queue_.size() >0){
-        auto& event= this->event_queue_.back();
-        std::visit(detail::Dispatcher{this },event);
-        this->event_queue_.pop_back();
+    void Portal::dispatch_events_core(event_queue_t::iterator event_it){
+      using deallocator_t = fluxpp::event_system::detail::PortalAllocator::Deallocator<AbstractEvent>;
+      bool erase_from_event = false;
+      std::visit(fluxpp::meta::overload{
+          [this,&erase_from_event]
+            (std::unique_ptr<AbstractEvent>&event,
+             std::function<void(AbstractEvent*)>& dispatcher   ){
+            dispatcher(event.get());
+            erase_from_event = true;
+          },
+            [this,&erase_from_event]
+              (std::unique_ptr<AbstractEvent,deallocator_t>&event,
+               std::function<void(AbstractEvent*)>& dispatcher ){
+              dispatcher(event.get());
+              erase_from_event = true;
+              
+            },
+              [this,&erase_from_event, &event_it]
+                (std::unique_ptr<AbstractEvent,deallocator_t>&event,
+                     std::pair<
+                     std::function<bool(AbstractEvent*)>,
+                     std::function<void(ranges::any_view<AbstractEvent*, ranges::category::forward >&)>
+                     >& dispatcher ){
+                if (dispatcher.first(event.get() )){
+                  erase_from_event = true;
 
-      };
+                  ranges::any_view<AbstractEvent*, ranges::category::forward> transformed_range = ranges::subrange(event_it, this->event_queue_.end() )
+                      |ranges::views::transform([](std::variant<
+                                            std::unique_ptr<AbstractEvent>,
+                                            std::unique_ptr<AbstractEvent,deallocator_t>>& event)->AbstractEvent*{
+                                           AbstractEvent * return_ptr = nullptr;
+                                           std::visit(fluxpp::meta::overload{
+                                               [&return_ptr](std::unique_ptr<AbstractEvent>& event ){return_ptr = event.get(); },
+                                                 [&return_ptr](std::unique_ptr<AbstractEvent,deallocator_t>& event){return_ptr = event.get();}
+
+                                             }
+                                             ,event   );
+                                           assert(return_ptr); 
+                                           return return_ptr;
+                                                });
+                } else {
+                  // handle the events not yet.
+                  erase_from_event = false;
+                  
+                };
+              },
+                [this, event_it,&erase_from_event](std::unique_ptr<AbstractEvent>&event,
+                            std::pair<std::function<bool(AbstractEvent*)>,
+                  std::function<void(ranges::any_view<AbstractEvent*, ranges::category::forward >&)>
+                            >& dispatcher){
+
+                                       if (dispatcher.first(event.get() )){
+                  erase_from_event = true;
+
+                  ranges::any_view<AbstractEvent*, ranges::category::forward> transformed_range = ranges::subrange(event_it, this->event_queue_.end() )
+                      |ranges::views::transform([](std::variant<
+                                            std::unique_ptr<AbstractEvent>,
+                                            std::unique_ptr<AbstractEvent,deallocator_t>>& event)->AbstractEvent*{
+                                           AbstractEvent * return_ptr = nullptr;
+                                           std::visit(fluxpp::meta::overload{
+                                               [&return_ptr](std::unique_ptr<AbstractEvent>& event ){return_ptr = event.get(); },
+                                                 [&return_ptr](std::unique_ptr<AbstractEvent,deallocator_t>& event){return_ptr = event.get();}
+
+                                             }
+                                             ,event   );
+                                           assert(return_ptr); 
+                                           return return_ptr;
+                                                });
+                } else {
+                  // handle the events not yet.
+                  erase_from_event = false;
+                  
+                };
+                                       
+                     }
+          },*event_it, this->dispatcher_);
+    };
+    void Portal::set_dispatcher(std::function<void( AbstractEvent*)> dispatcher){
+      this->dispatcher_ = dispatcher;
+    };
+    void Portal::set_buffered_dispatcher(std::function<bool(AbstractEvent* )>checker,
+                                         std::function<void(ranges::any_view< AbstractEvent* , ranges::category::forward>& ) > dispatcher ){
+      this->dispatcher_ = std::pair<std::function<bool(AbstractEvent* )>, std::function<void(ranges::any_view< AbstractEvent* , ranges::category::forward>& ) > >
+        (checker,dispatcher);
     };
 
     Port EventSystem::get_port(){
