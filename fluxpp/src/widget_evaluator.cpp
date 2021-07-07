@@ -5,7 +5,6 @@
 
 namespace fluxpp{
   namespace widget_evaluator{
-
     
     void WidgetEvaluator::start(){
       this->event_system_->get_portal(
@@ -47,9 +46,10 @@ namespace fluxpp{
       };
       if (target.content_.size() > 1 ){
         this->bootstrap_ui_->warning(0, fmt::format("sorry currently  only direct dispatch to the widget evaluator is supported. {}",  *event ));
+        return;
       };
 
-      
+      //      RenderVisitor( this).dispatch(event);
       
       
     };

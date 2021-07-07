@@ -12,7 +12,9 @@
 #include <list>
 #include <range/v3/all.hpp>
 #include "id.hpp"
+#include "util.hpp"
 #include <fmt/format.h>
+#include "render_visitor.hpp"
 
 namespace fluxpp {
   namespace event_system{
@@ -197,23 +199,19 @@ namespace fluxpp {
 
   // EventDispatchVisitor
   namespace event_system{
-    class EventDispatchVisitor{
-    public:
-      template< class event_t>
-      void dispatch_generic(event_t & event) {}; 
 
-      template< class event_t>
-      void dispatch_2DPlane(event_t & event) {}; 
-
-    };
-    
+    // TODO: Path to targets should go in here to aid with optimization 
     class AbstractEvent{
     public:
-      virtual void accept(EventDispatchVisitor& visitor) = 0;
+      virtual void accept(AbstractEventDispatchVisitor& visitor) = 0;
       virtual const Path& target()const = 0;
-      virtual  std::string fmt()const; 
+      virtual  std::string fmt()const;
+
+      // if your accept calls visitor.dispatch_2d you must implement this.
+      virtual AbstractEvent* with_offset2d(fluxpp::util::Position2D ) ; 
     };
     
+    inline AbstractEvent* AbstractEvent::with_offset2d(fluxpp::util::Position2D){return nullptr; };
     inline std::string AbstractEvent::fmt()const { return "...";};
     
     template <class data_t>
@@ -222,8 +220,8 @@ namespace fluxpp {
       DataEvent(Path target, data_t data)
         :content_(std::move(data))
         ,target_{std::move(target) }{};
-      void accept(EventDispatchVisitor& visitor){
-        visitor.dispatch_generic(*this);
+      void accept(AbstractEventDispatchVisitor& visitor){
+        visitor.dispatch_generic(this);
       };
       const Path& target()const{return this->target_;};
     public:

@@ -38,7 +38,6 @@ namespace fluxpp{
     template<class return_t >
     class AbstractSubscription {};
 
-
     template<class return_t, class input_t>
     class Subscription: public AbstractSubscription<return_t>{
 
@@ -80,7 +79,6 @@ namespace fluxpp{
 
 
     };
-
     
     template<WidgetSuperclass widget_superclass_>
     class FullyErasedWidget{};
