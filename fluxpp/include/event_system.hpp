@@ -12,7 +12,7 @@
 #include <list>
 #include <range/v3/all.hpp>
 #include "id.hpp"
-
+#include <fmt/format.h>
 
 namespace fluxpp {
   namespace event_system{
@@ -183,7 +183,7 @@ namespace fluxpp {
       fluxpp::id::Id<StringIdTag>,
       fluxpp::id::id_base_type> content_;
     };
-    
+   
 
     class Path{
       // TODO make it private:
@@ -192,6 +192,7 @@ namespace fluxpp {
 
     };
 
+    
   } // event_system
 
   // EventDispatchVisitor
@@ -209,18 +210,25 @@ namespace fluxpp {
     class AbstractEvent{
     public:
       virtual void accept(EventDispatchVisitor& visitor) = 0;
+      virtual const Path& target()const = 0;
+      virtual  std::string fmt()const; 
     };
-
+    
+    inline std::string AbstractEvent::fmt()const { return "...";};
+    
     template <class data_t>
     class DataEvent: public AbstractEvent{
     public:
-      DataEvent(data_t data)
-        :content_(std::move(data)){};
+      DataEvent(Path target, data_t data)
+        :content_(std::move(data))
+        ,target_{std::move(target) }{};
       void accept(EventDispatchVisitor& visitor){
         visitor.dispatch_generic(*this);
       };
+      const Path& target()const{return this->target_;};
     public:
       data_t content_ {};
+      Path target_{{}};
     };
 
     class RenderRequestEvent{};
@@ -412,5 +420,24 @@ namespace fluxpp {
 
   }// event_system
 } // fluxpp
+template<> struct fmt::formatter<fluxpp::event_system::AbstractEvent > {
+  constexpr auto parse(format_parse_context&ctx) ->decltype(ctx.begin()) {
+    auto it = ctx.begin();
+    auto end = ctx.end();
+    for(; it!=end and *it!= '}'; ++it);
 
+    return it;
+  };
+
+  template<typename FormatContext>
+  auto format(const  fluxpp::event_system::AbstractEvent& event, FormatContext &ctx)->decltype(ctx.out()){
+    return format_to(
+        ctx.out(),
+        "Event({} )",
+        event.fmt());
+
+
+  };
+
+};
 #endif // FLUXPP_EVENT_SYSTEM_HPP

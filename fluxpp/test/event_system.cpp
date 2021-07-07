@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 #include "event_system.hpp"
-
+#include "widget.hpp"
 
 namespace {
   using string_id_t = fluxpp::id::Id<fluxpp::event_system::StringIdTag>;
@@ -120,6 +120,6 @@ TEST_CASE("EventSystem"){
   Port port = event_system.get_port();
   port.dispatch_event(
       fluxpp::event_system::Path{{{app_id}, {orf_id}}} ,
-      DataEvent<int>{1});
+      DataEvent<int>{fluxpp::event_system::Path{{{app_id}, {orf_id}}},1});
   CHECK(was_called);
 };

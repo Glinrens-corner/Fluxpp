@@ -29,9 +29,12 @@ namespace fluxpp{
       using abstract_event_type = abstract_event_t;
       static constexpr  char* self_portal_name_ = "widgets";
     private:
-      void handle_events(ranges::any_view< abstract_event_t*, ranges::category::forward>& events );
+      void handle_events(
+          ranges::any_view<
+          abstract_event_t*,
+          ranges::category::forward>& events );
+      void dispatch_event(abstract_event_t*);
     public:
-      
       
       void start();
 
@@ -39,7 +42,7 @@ namespace fluxpp{
       WidgetTree* widget_tree_;
       string_mapper_t * string_mapper_;
       event_system_t * event_system_;
-      bootstrap_ui_t * boostrap_ui_;
+      bootstrap_ui_t * bootstrap_ui_;
       backend_t * backend_;
     };
   }// 
